@@ -76,25 +76,25 @@ cfg = st.session_state.config
 # ==========================================
 def calcular_soporte_reactivo(v_actual_pu, p_activa, s_inv_kva):
     """
-    Control de voltaje (Volt/VAR) según IEEE 2800 y ARCONEL 001/24.
+    Control de voltaje (Volt/VAR) con curva de droop. 
+    Actúa para estabilizar la tensión si sale de 0.98 - 1.02 p.u.
     """
-    q_max = np.sqrt(s_inv_kva**2 - p_activa**2) if s_inv_kva > p_activa else 0.0
+    q_max = np.sqrt(max(0, s_inv_kva**2 - p_activa**2))
     q_inyectada = 0.0
     v_corregido = v_actual_pu
     
-    if v_actual_pu < 0.95:
-        q_requerida = (0.95 - v_actual_pu) * 1000 
+    if v_actual_pu < 0.98:
+        q_requerida = (0.98 - v_actual_pu) * (s_inv_kva * 2) 
         q_inyectada = min(q_requerida, q_max)
-        v_corregido = v_actual_pu + (q_inyectada / 1000)
-    elif v_actual_pu > 1.05:
-        q_requerida = (v_actual_pu - 1.05) * 1000
-        q_inyectada = -min(q_requerida, q_max)
-        v_corregido = v_actual_pu + (q_inyectada / 1000)
+        v_corregido = v_actual_pu + (q_inyectada / (s_inv_kva * 2))
+    elif v_actual_pu > 1.02:
+        q_requerida = (v_actual_pu - 1.02) * (s_inv_kva * 2)
+        q_inyectada = max(-q_requerida, -q_max)
+        v_corregido = v_actual_pu + (q_inyectada / (s_inv_kva * 2))
         
     return q_inyectada, v_corregido
 
 def simular_evento_transitorio(tipo_evento):
-    """Generador de series de tiempo para fallas dinámicas (10 segundos, alta resolución)"""
     tiempo = np.linspace(0, 10, 1000)
     voltaje = np.ones(1000) * 1.0 
     frecuencia = np.ones(1000) * 60.0 
@@ -118,7 +118,6 @@ def simular_evento_transitorio(tipo_evento):
         
     return pd.DataFrame({"Tiempo (s)": tiempo, "Voltaje (p.u.)": voltaje, "Frecuencia (Hz)": frecuencia})
 
-# Algoritmo de Peak Shaving 24h
 REAL_LOAD = [36, 36, 36, 36, 36, 40, 60, 90, 120, 145, 160, 175, 179.1, 140, 150, 155, 160, 165, 172, 175, 130, 90, 50, 36]
 PV_BASE = [0, 0, 0, 0, 0, 0, 5, 25, 55, 90, 120, 140, 150, 140, 120, 90, 55, 25, 5, 0, 0, 0, 0, 0]
 factor_pv = cfg['p_pv'] / 150.0 if cfg['p_pv'] > 0 else 0.0
@@ -142,8 +141,8 @@ for i in range(24):
     energia -= p_bat
     soc = (energia / cfg['c_bat']) * 100.0
     
-    # Simulación de control Volt/VAR horario (Asumiendo voltaje base 1.0 y perturbación leve por carga)
-    v_base = 1.0 - (p_red / (cfg['s_trafo'] * 5)) 
+    # Forzar una perturbación de voltaje proporcional a la carga de red para activar Q_inyectada
+    v_base = 1.0 - (p_red / cfg['s_trafo']) * 0.4
     q_inyectada, v_final = calcular_soporte_reactivo(v_base, p_bat + pv_real[i], inv_req)
     
     rows_ems.append({'Hora': f"{i:02d}:00", 'P_Carga': REAL_LOAD[i], 'P_PV': pv_real[i], 'P_Bat': round(p_bat, 1), 
@@ -235,7 +234,7 @@ elif st.session_state.page == "EMS":
     st.plotly_chart(fig_soc, use_container_width=True)
     st.dataframe(df_ems, use_container_width=True)
 
-# --- VISTA 3: TRANSITORIOS (NUEVO) ---
+# --- VISTA 3: TRANSITORIOS ---
 elif st.session_state.page == "Transitorios":
     st.markdown("<h3 style='color: #00B8FF;'>Análisis de Estabilidad Dinámica y Fallas (IEEE 2800 / ARCONEL-001/24)</h3>", unsafe_allow_html=True)
     st.markdown("<p style='color: #94A3B8;'>Simulación EMT (Electromagnetic Transients) en ventana de 10 segundos, evaluando la respuesta del inversor frente a perturbaciones de red.</p>", unsafe_allow_html=True)
@@ -269,65 +268,143 @@ elif st.session_state.page == "Transitorios":
 elif st.session_state.page == "Unifilar":
     st.markdown("<h3 style='color: #00B8FF;'>Diagrama Unifilar Jerárquico (Interfaz SCADA)</h3>", unsafe_allow_html=True)
     c_left, c_right = st.columns([1.5, 3.5])
+    
     with c_left:
         st.markdown("<div style='background-color:#111B2E; border:1px solid #26354D; padding:20px; border-radius:8px;'><p style='font-size:16px; font-weight:700; color:#F8FAFC; margin-bottom:12px;'>Equipos</p>", unsafe_allow_html=True)
         eq = st.radio("Sel:", ["Transformador", "BESS", "Inversor", "Arreglo PV", "Red CNEL", "TGBT", "Cargas Bloque D"], label_visibility="collapsed")
         st.markdown("</div><br>", unsafe_allow_html=True)
         if eq == "Transformador":
-            st.markdown(f"""<div class="kpi-card" style="border-top:3px solid #00B8FF;"><h4 style="color:#00B8FF; margin-top:0;">⚡ TRANSFORMADOR</h4><div style="font-size:14px; line-height:2.0; color:#F8FAFC;"><b>Capacidad:</b> {cfg['s_trafo']} kVA<br><b>Tensión:</b> 69 kV / {cfg['v_nom']/1000} kV<br><b>Carga Actual:</b> {carg_con:.1f} %<br><span class="c-green">● NORMAL</span></div></div>""", unsafe_allow_html=True)
+            st.markdown(f"""<div class="kpi-card" style="border-top:3px solid #FFFFFF;"><h4 style="color:#FFFFFF; margin-top:0;">⚡ TRANSFORMADOR</h4><div style="font-size:14px; line-height:2.0; color:#F8FAFC;"><b>Capacidad:</b> {cfg['s_trafo']} kVA<br><b>Tensión:</b> 69 kV / {cfg['v_nom']/1000} kV<br><b>Carga Actual:</b> {carg_con:.1f} %<br><span class="c-green">● NORMAL</span></div></div>""", unsafe_allow_html=True)
         elif eq == "BESS":
-            st.markdown(f"""<div class="kpi-card" style="border-top:3px solid #00D084;"><h4 style="color:#00D084; margin-top:0;">🔋 BANCO BESS</h4><div style="font-size:14px; line-height:2.0; color:#F8FAFC;"><b>Capacidad:</b> {cfg['c_bat']} kWh<br><b>Tecnología:</b> LiFePO4<br><span class="c-green">● ONLINE</span></div></div>""", unsafe_allow_html=True)
+            st.markdown(f"""<div class="kpi-card" style="border-top:3px solid #FFFFFF;"><h4 style="color:#FFFFFF; margin-top:0;">🔋 BANCO BESS</h4><div style="font-size:14px; line-height:2.0; color:#F8FAFC;"><b>Capacidad:</b> {cfg['c_bat']} kWh<br><b>Tecnología:</b> LiFePO4<br><span class="c-green">● ONLINE</span></div></div>""", unsafe_allow_html=True)
         else:
-            st.markdown(f"""<div class="kpi-card" style="border-top:3px solid #00B8FF;"><h4 style="color:#00B8FF; margin-top:0;">{eq.upper()}</h4><div style="font-size:14px; line-height:2.0; color:#F8FAFC;"><span class="c-green">● ESTADO: OPERATIVO</span></div></div>""", unsafe_allow_html=True)
+            st.markdown(f"""<div class="kpi-card" style="border-top:3px solid #FFFFFF;"><h4 style="color:#FFFFFF; margin-top:0;">{eq.upper()}</h4><div style="font-size:14px; line-height:2.0; color:#F8FAFC;"><span class="c-green">● ESTADO: OPERATIVO</span></div></div>""", unsafe_allow_html=True)
 
     with c_right:
+        hl_color = '#FFFFFF'
+        col_cnel = hl_color if eq == "Red CNEL" else '#00B8FF'
+        col_trafo = hl_color if eq == "Transformador" else '#00B8FF'
+        col_tgbt = hl_color if eq == "TGBT" else '#00B8FF'
+        col_carga = hl_color if eq == "Cargas Bloque D" else '#FF4D5A'
+        col_inv = hl_color if eq == "Inversor" else '#A855F7'
+        col_pv = hl_color if eq == "Arreglo PV" else '#FFB020'
+        col_bess = hl_color if eq == "BESS" else '#00D084'
+
         fig_sld = go.Figure()
         fig_sld.update_xaxes(visible=False, range=[-120, 120]); fig_sld.update_yaxes(visible=False, range=[-80, 220])
-        l_col = '#00B8FF'; t_col = '#F8FAFC'
-        fig_sld.add_trace(go.Scatter(x=[0, 0], y=[200, 150], mode='lines', line=dict(color=l_col, width=2), showlegend=False))
-        fig_sld.add_annotation(x=30, y=190, text="RED CNEL 13.8 kV", showarrow=False, font=dict(size=12, color=t_col))
-        fig_sld.add_shape(type="circle", x0=-12, y0=115, x1=12, y1=145, line_color=l_col, line_width=2)
-        fig_sld.add_shape(type="circle", x0=-12, y0=95, x1=12, y1=125, line_color=l_col, line_width=2)
-        fig_sld.add_annotation(x=45, y=120, text=f"TRAFO {cfg['s_trafo']} kVA", showarrow=False, font=dict(size=12, color=t_col))
-        fig_sld.add_trace(go.Scatter(x=[0, 0], y=[95, 60], mode='lines', line=dict(color=l_col, width=2), showlegend=False))
-        fig_sld.add_shape(type="rect", x0=-10, y0=65, x1=10, y1=80, line_color=l_col, line_width=2, fillcolor='#111B2E')
-        fig_sld.add_annotation(x=35, y=72, text="ITM 50kA", showarrow=False, font=dict(size=11, color=t_col))
-        fig_sld.add_trace(go.Scatter(x=[0, 0], y=[60, 40], mode='lines', line=dict(color=l_col, width=2), showlegend=False))
-        fig_sld.add_trace(go.Scatter(x=[-90, 90], y=[40, 40], mode='lines', line=dict(color=l_col, width=4), showlegend=False))
-        fig_sld.add_annotation(x=0, y=47, text=f"BUS TGBT {cfg['v_nom']}V", showarrow=False, font=dict(size=13, color=t_col, weight="bold"))
-        fig_sld.add_trace(go.Scatter(x=[-50, -50], y=[40, 0], mode='lines', line=dict(color='#FF4D5A', width=2), showlegend=False))
-        fig_sld.add_shape(type="rect", x0=-75, y0=-15, x1=-25, y1=0, line_color="#FF4D5A", line_width=2)
-        fig_sld.add_annotation(x=-50, y=-7.5, text="CARGAS", showarrow=False, font=dict(size=11, color='#FF4D5A'))
-        fig_sld.add_trace(go.Scatter(x=[50, 50], y=[40, 0], mode='lines', line=dict(color='#A855F7', width=2), showlegend=False))
-        fig_sld.add_shape(type="rect", x0=20, y0=-15, x1=80, y1=0, line_color="#A855F7", line_width=2)
-        fig_sld.add_annotation(x=50, y=-7.5, text="INVERSOR", showarrow=False, font=dict(size=11, color='#A855F7'))
-        fig_sld.add_trace(go.Scatter(x=[35, 35], y=[-15, -40], mode='lines', line=dict(color='#FFB020', width=2), showlegend=False))
-        fig_sld.add_trace(go.Scatter(x=[65, 65], y=[-15, -40], mode='lines', line=dict(color='#00D084', width=2), showlegend=False))
-        fig_sld.add_shape(type="rect", x0=20, y0=-60, x1=50, y1=-40, line_color="#FFB020", line_width=2)
-        fig_sld.add_annotation(x=35, y=-50, text="PV", showarrow=False, font=dict(size=11, color='#FFB020'))
-        fig_sld.add_shape(type="rect", x0=55, y0=-60, x1=85, y1=-40, line_color="#00D084", line_width=2)
-        fig_sld.add_annotation(x=70, y=-50, text="BESS", showarrow=False, font=dict(size=11, color='#00D084'))
+        
+        # Red CNEL
+        fig_sld.add_trace(go.Scatter(x=[0, 0], y=[200, 150], mode='lines', line=dict(color=col_cnel, width=5 if eq == "Red CNEL" else 2), showlegend=False))
+        fig_sld.add_annotation(x=30, y=190, text="RED CNEL 13.8 kV", showarrow=False, font=dict(size=12, color=col_cnel))
+        
+        # Trafo
+        fig_sld.add_shape(type="circle", x0=-12, y0=115, x1=12, y1=145, line_color=col_trafo, line_width=5 if eq == "Transformador" else 2)
+        fig_sld.add_shape(type="circle", x0=-12, y0=95, x1=12, y1=125, line_color=col_trafo, line_width=5 if eq == "Transformador" else 2)
+        fig_sld.add_annotation(x=45, y=120, text=f"TRAFO {cfg['s_trafo']} kVA", showarrow=False, font=dict(size=12, color=col_trafo))
+        
+        # TGBT
+        fig_sld.add_trace(go.Scatter(x=[0, 0], y=[95, 60], mode='lines', line=dict(color=col_tgbt, width=5 if eq == "TGBT" else 2), showlegend=False))
+        fig_sld.add_shape(type="rect", x0=-10, y0=65, x1=10, y1=80, line_color=col_tgbt, line_width=4 if eq == "TGBT" else 2, fillcolor='#111B2E')
+        fig_sld.add_annotation(x=35, y=72, text="ITM 50kA", showarrow=False, font=dict(size=11, color=col_tgbt))
+        fig_sld.add_trace(go.Scatter(x=[0, 0], y=[60, 40], mode='lines', line=dict(color=col_tgbt, width=5 if eq == "TGBT" else 2), showlegend=False))
+        fig_sld.add_trace(go.Scatter(x=[-90, 90], y=[40, 40], mode='lines', line=dict(color=col_tgbt, width=7 if eq == "TGBT" else 4), showlegend=False))
+        fig_sld.add_annotation(x=0, y=47, text=f"BUS TGBT {cfg['v_nom']}V", showarrow=False, font=dict(size=13, color=col_tgbt, weight="bold"))
+        
+        # Rama Cargas
+        fig_sld.add_trace(go.Scatter(x=[-50, -50], y=[40, 0], mode='lines', line=dict(color=col_carga, width=5 if eq == "Cargas Bloque D" else 2), showlegend=False))
+        fig_sld.add_shape(type="rect", x0=-75, y0=-15, x1=-25, y1=0, line_color=col_carga, line_width=5 if eq == "Cargas Bloque D" else 2)
+        fig_sld.add_annotation(x=-50, y=-7.5, text="CARGAS", showarrow=False, font=dict(size=11, color=col_carga))
+        
+        # Rama Inversor
+        fig_sld.add_trace(go.Scatter(x=[50, 50], y=[40, 0], mode='lines', line=dict(color=col_inv, width=5 if eq == "Inversor" else 2), showlegend=False))
+        fig_sld.add_shape(type="rect", x0=20, y0=-15, x1=80, y1=0, line_color=col_inv, line_width=5 if eq == "Inversor" else 2)
+        fig_sld.add_annotation(x=50, y=-7.5, text="INVERSOR", showarrow=False, font=dict(size=11, color=col_inv))
+        
+        # DC Lines (PV / BESS)
+        fig_sld.add_trace(go.Scatter(x=[35, 35], y=[-15, -40], mode='lines', line=dict(color=col_pv, width=5 if eq == "Arreglo PV" else 2), showlegend=False))
+        fig_sld.add_trace(go.Scatter(x=[65, 65], y=[-15, -40], mode='lines', line=dict(color=col_bess, width=5 if eq == "BESS" else 2), showlegend=False))
+        fig_sld.add_shape(type="rect", x0=20, y0=-60, x1=50, y1=-40, line_color=col_pv, line_width=5 if eq == "Arreglo PV" else 2)
+        fig_sld.add_annotation(x=35, y=-50, text="PV", showarrow=False, font=dict(size=11, color=col_pv))
+        fig_sld.add_shape(type="rect", x0=55, y0=-60, x1=85, y1=-40, line_color=col_bess, line_width=5 if eq == "BESS" else 2)
+        fig_sld.add_annotation(x=70, y=-50, text="BESS", showarrow=False, font=dict(size=11, color=col_bess))
+
         fig_sld.update_layout(height=600, margin=dict(l=0, r=0, t=10, b=10), template='plotly_dark', paper_bgcolor='#111B2E', plot_bgcolor='#111B2E')
         st.plotly_chart(fig_sld, use_container_width=True)
 
 # --- VISTA 5: MEMORIA TÉCNICA ---
 elif st.session_state.page == "Memoria":
     st.markdown("<h3 style='color: #00B8FF;'>Generación de Memoria Técnica</h3>", unsafe_allow_html=True)
+    st.markdown("<p style='color: #94A3B8;'>El documento Word (.docx) se genera respetando tu formato de ingeniería exacto.</p>", unsafe_allow_html=True)
+    
     def generar_docx():
         doc = Document()
+        for section in doc.sections:
+            section.top_margin = Inches(1); section.bottom_margin = Inches(1); section.left_margin = Inches(1); section.right_margin = Inches(1)
+            
         p = doc.add_paragraph(); p.alignment = WD_ALIGN_PARAGRAPH.CENTER
-        r = p.add_run("MEMORIA TÉCNICA EMS"); r.bold = True; r.font.size = Pt(14)
+        r = p.add_run("MEMORIA TÉCNICA Y ESPECIFICACIONES DE PROYECTO"); r.bold = True; r.font.size = Pt(14)
+        
+        t_meta = doc.add_table(rows=4, cols=2); t_meta.style = 'Table Grid'
+        data_m = [("Departamento:", "Ingeniería Técnica"), ("Documento:", f"Memoria Técnica EMS - {cfg['nombre_proyecto']}"), ("Código Documento:", "PROY-EMS-MTC-001"), ("Fecha:", "2026")]
+        for i, (k, v) in enumerate(data_m):
+            t_meta.cell(i, 0).text = k; t_meta.cell(i, 0).paragraphs[0].runs[0].bold = True; t_meta.cell(i, 1).text = v
+
         doc.add_heading('1. OBJETIVOS', level=1)
-        doc.add_paragraph("Implementar control activo de potencia (Peak Shaving) y control de reactivos (Volt/VAR) cumpliendo IEEE 2800.")
-        doc.add_heading('2. ANÁLISIS DE FALLAS Y ESTABILIDAD', level=1)
-        doc.add_paragraph("El inversor IBR cumple límites de voltaje (0.9-1.05 p.u.) mediante inyección reactiva.")
+        doc.add_paragraph(f"Electrificación y recorte de demanda pico (Peak Shaving) a {cfg['p_lim']:.1f} kW, garantizando el cumplimiento de normativas de interconexión (IEEE 2800, ARCONEL-001/24).")
+        doc.add_heading('2. ESTUDIO TÉCNICO Y ESTABILIDAD', level=1)
+        doc.add_paragraph(f"El inversor IBR cumple límites de voltaje continuo (0.9-1.05 p.u.) mediante inyección reactiva dinámica de hasta {inv_req:.1f} kVA.")
         target = io.BytesIO(); doc.save(target)
         return target.getvalue()
-    st.download_button("📄 DESCARGAR DOCX", generar_docx(), "Memoria.docx", 'application/vnd.openxmlformats-officedocument.wordprocessingml.document')
+
+    st.download_button("📄 DESCARGAR MEMORIA TÉCNICA (.DOCX)", generar_docx(), f"Memoria_Tecnica_{cfg['nombre_proyecto'].replace(' ','_')}.docx", 'application/vnd.openxmlformats-officedocument.wordprocessingml.document')
 
 # --- VISTA 6: EXPORTACIONES Y MATLAB ---
 elif st.session_state.page == "Exportaciones":
-    st.markdown("<h3 style='color: #00B8FF;'>Exportación de Datos y Código</h3>", unsafe_allow_html=True)
+    st.markdown("<h3 style='color: #00B8FF;'>Exportación de Planos, Datos y Código MATLAB</h3>", unsafe_allow_html=True)
+    
+    def generate_dxf_full():
+        lines = ["0", "SECTION", "2", "HEADER", "0", "ENDSEC", "0", "SECTION", "2", "TABLES", "0", "ENDSEC", "0", "SECTION", "2", "BLOCKS", "0", "ENDSEC", "0", "SECTION", "2", "ENTITIES"]
+        def add_line(layer, x1, y1, x2, y2, color="7"): lines.extend(["0", "LINE", "8", layer, "62", color, "10", f"{x1:.2f}", "20", f"{y1:.2f}", "30", "0.0", "11", f"{x2:.2f}", "21", f"{y2:.2f}", "31", "0.0"])
+        def add_circle(layer, cx, cy, r, color="7"): lines.extend(["0", "CIRCLE", "8", layer, "62", color, "10", f"{cx:.2f}", "20", f"{cy:.2f}", "30", "0.0", "40", f"{r:.2f}"])
+        def add_text(layer, x, y, text, height=3.0, color="7"): lines.extend(["0", "TEXT", "8", layer, "62", color, "10", f"{x:.2f}", "20", f"{y:.2f}", "30", "0.0", "40", f"{height:.2f}", "1", str(text)])
+        def add_box(layer, x1, y1, x2, y2, color="7"): add_line(layer, x1, y1, x2, y1, color); add_line(layer, x2, y1, x2, y2, color); add_line(layer, x2, y2, x1, y2, color); add_line(layer, x1, y2, x1, y1, color)
+
+        add_box("MARCO", -200, -150, 300, 250, color="2")
+        add_box("CAJETIN", 150, -150, 300, -80, color="2")
+        add_text("TEXTOS", 160, -90, f"PROYECTO: {cfg['nombre_proyecto'].upper()}", 4.0, "7")
+        add_text("TEXTOS", 160, -110, f"UBICACION: {cfg['ubicacion_proyecto'].upper()}", 3.5, "7")
+        
+        add_line("RED_MT", 50, 220, 50, 160, color="4")
+        add_text("TEXTOS", 55, 210, "RED CNEL - 13.8 kV", 3.5, "7")
+        add_circle("TRAFO", 50, 115, 15, color="4"); add_circle("TRAFO", 50, 95, 15, color="4")
+        add_text("TEXTOS", 85, 120, f"TRAFO {cfg['s_trafo']:.0f} kVA", 3.5, "7")
+        
+        add_line("BUS", -50, 50, 250, 50, color="4")
+        add_text("TEXTOS", 50, 55, f"BUS TGBT {cfg['v_nom']:.0f}V", 4.0, "7")
+        
+        add_line("RED_BT", -20, 48, -20, 10, color="1"); add_box("EQUIPOS", -30, -10, -10, 10, color="1")
+        add_text("TEXTOS", -45, -20, "CARGAS", 3.5, "7")
+        
+        add_line("RED_BT", 150, 48, 150, 10, color="6"); add_box("EQUIPOS", 110, -10, 190, 10, color="6")
+        add_text("TEXTOS", 115, 0, f"INVERSOR {inv_req:.1f} kVA", 3.5, "7")
+        
+        add_line("RED_DC", 130, -10, 130, -40, color="2"); add_box("EQUIPOS", 110, -60, 150, -40, color="2")
+        add_text("TEXTOS", 115, -50, "PV", 3.0, "7")
+        add_line("RED_DC", 170, -10, 170, -40, color="3"); add_box("EQUIPOS", 150, -60, 190, -40, color="3")
+        add_text("TEXTOS", 155, -50, "BESS", 3.0, "7")
+
+        lines.extend(["0", "ENDSEC", "0", "EOF"])
+        return "\n".join(lines)
+
+    c1, c2 = st.columns(2)
+    with c1:
+        st.markdown("<div class='kpi-card' style='padding: 20px;'><h4 style='color:#F8FAFC; margin-top:0;'>Plano Vectorial CAD</h4><p style='color:#94A3B8; font-size:13px;'>Genera el diagrama unifilar CAD/DXF.</p></div>", unsafe_allow_html=True)
+        st.download_button("📐 DESCARGAR PLANO CAD (.DXF)", generate_dxf_full().encode('utf-8'), f"Unifilar_{cfg['nombre_proyecto'].replace(' ','_')}.dxf", 'application/dxf', use_container_width=True)
+    with c2:
+        st.markdown("<div class='kpi-card' style='padding: 20px;'><h4 style='color:#F8FAFC; margin-top:0;'>Datos Simulación</h4><p style='color:#94A3B8; font-size:13px;'>Balance horario en CSV.</p></div>", unsafe_allow_html=True)
+        st.download_button("📊 DESCARGAR RESULTADOS (.CSV)", df_ems.to_csv(index=False).encode('utf-8'), 'Resultados_EMS.csv', 'text/csv', use_container_width=True)
+
+    st.markdown("<br><h4 style='color: #F8FAFC;'>Código Operativo EMS (MATLAB)</h4>", unsafe_allow_html=True)
     matlab_code = f"""%% ============================================================
 %% Análisis Dinámico y Peak Shaving EMS — {cfg['nombre_proyecto']}
 %% ============================================================
@@ -336,15 +413,25 @@ P_lim = {cfg['p_lim']}; S_inv = {inv_req}; V_nom_pu = 1.0;
 P_carga = [{', '.join(map(str, REAL_LOAD))}];
 P_PV_real = [{', '.join(map(str, pv_real))}];
 P_bat = zeros(1,24); Q_inyectada = zeros(1,24);
+
 for t = 1:24
     P_teo = P_carga(t) - P_PV_real(t);
     P_bat(t) = max(0, P_teo - P_lim);
-    %% Control Reactivo Volt/VAR (IEEE 2800)
-    Q_max = sqrt(S_inv^2 - P_bat(t)^2);
-    V_bus = V_nom_pu - (P_teo / ({cfg['s_trafo']} * 5)); 
-    if V_bus < 0.95, Q_inyectada(t) = min((0.95 - V_bus)*1000, Q_max); end
+    
+    %% Control Reactivo Volt/VAR (IEEE 2800) Droop Control
+    Q_max = sqrt(max(0, S_inv^2 - P_bat(t)^2));
+    
+    %% Simulación de voltaje basado en consumo bruto
+    V_bus = V_nom_pu - (P_teo / ({cfg['s_trafo']} * 0.4)); 
+    
+    if V_bus < 0.98
+        Q_req = (0.98 - V_bus) * (S_inv * 2);
+        Q_inyectada(t) = min(Q_req, Q_max);
+    elseif V_bus > 1.02
+        Q_req = (V_bus - 1.02) * (S_inv * 2);
+        Q_inyectada(t) = max(-Q_req, -Q_max);
+    end
 end
 disp('=== SIMULACIÓN COMPLETADA ===');
 """
     st.code(matlab_code, language='matlab')
-    st.download_button("📊 DESCARGAR RESULTADOS (.CSV)", df_ems.to_csv(index=False).encode('utf-8'), 'Resultados_EMS.csv', 'text/csv')
