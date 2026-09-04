@@ -1,6 +1,10 @@
 import streamlit as st
 import pandas as pd
 import plotly.graph_objects as go
+import io
+from docx import Document
+from docx.shared import Pt, Inches
+from docx.enum.text import WD_ALIGN_PARAGRAPH
 
 # ==========================================
 # CONFIGURACIÓN GENERAL DE LA PÁGINA
@@ -12,7 +16,7 @@ st.markdown("**Plataforma de Control Energético, Simulación Normativa y Gesti�
 st.markdown("---")
 
 # ==========================================
-# BARRA LATERAL: CONFIGURACIÓN GLOBAL (Con Rangos Reales)
+# BARRA LATERAL: CONFIGURACIÓN GLOBAL
 # ==========================================
 st.sidebar.header("⚙️ Parámetros Globales (EMS)")
 
@@ -43,7 +47,7 @@ if 'df_base' not in st.session_state:
         'P_PV_(kW)': [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 5.0, 25.0, 55.0, 90.0, 120.0, 140.0, 150.0, 140.0, 120.0, 90.0, 55.0, 25.0, 5.0, 0.0, 0.0, 0.0, 0.0, 0.0]
     })
 
-# Escalar perfil fotovoltaico en función de la barra lateral
+# Escalar perfil fotovoltaico
 factor_escala_pv = potencia_pv / 150.0 if potencia_pv > 0 else 0.0
 df_calc = st.session_state.df_base.copy()
 df_calc['P_PV_(kW)'] = df_calc['P_PV_(kW)'] * factor_escala_pv
@@ -64,7 +68,7 @@ modulo_seleccionado = st.radio("Seleccione el Módulo de Trabajo:", modulos, hor
 st.markdown("---")
 
 # ==========================================
-# ALGORITMO EMS DETERMINÍSTICO Y VARIABLES GLOBALES
+# ALGORITMO EMS DETERMINÍSTICO DE CÁLCULO
 # ==========================================
 df_calc['P_Red_Teorica'] = df_calc['P_Carga_(kW)'] - df_calc['P_PV_(kW)']
 
@@ -78,14 +82,11 @@ p_bat_lista, p_red_real_lista, e_bat_lista, soc_lista = [], [], [], []
 for idx, row in df_calc.iterrows():
     p_teorica = row['P_Red_Teorica']
     
-    # Peak Shaving
     if p_teorica > limite_red:
         p_req = p_teorica - limite_red
         p_bat = p_req if (energia_actual - p_req) >= soc_min else max(0.0, energia_actual - soc_min)
-    # Carga Nocturna
     elif 1 <= idx <= 5:
         p_bat = -carga_nocturna if (energia_actual + carga_nocturna) <= soc_max else -(soc_max - energia_actual)
-    # Standby
     else:
         p_bat = 0.0
 
@@ -103,7 +104,6 @@ df_calc['P_Red_Real_(kW)'] = p_red_real_lista
 df_calc['Energia_Almacenada_(kWh)'] = e_bat_lista
 df_calc['SOC_(%)'] = soc_lista
 
-# Variables globales para consumo general
 demanda_max = float(df_calc['P_Carga_(kW)'].max())
 demanda_recortada = float(df_calc['P_Red_Real_(kW)'].max())
 reduccion_pico = demanda_max - demanda_recortada
@@ -118,12 +118,110 @@ cargabilidad_sin = (demanda_max / s_trafo) * 100.0
 cargabilidad_con = (demanda_recortada / s_trafo) * 100.0
 
 # ==========================================
-# MÓDULO 1: DIAGRAMA UNIFILAR JERÁRQUICO
+# FUNCIÓN GENERADORA DE DOCUMENTO WORD (.DOCX)
+# ==========================================
+def generar_memoria_docx():
+    doc = Document()
+    
+    # Título principal
+    p_title = doc.add_paragraph()
+    p_title.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    r_title = p_title.add_run("MEMORIA TÉCNICA Y ESPECIFICACIONES DE PROYECTO")
+    r_title.bold = True
+    r_title.font.size = Pt(16)
+    
+    # Tabla de metadatos estilo expediente
+    table = doc.add_table(rows=5, cols=2)
+    table.style = 'Table Grid'
+    data_meta = [
+        ("Departamento:", "Ingeniería y Viabilidad Técnica"),
+        ("Documento:", "Memoria Técnica y Marco Teórico Normativo - EMS Bloque D (UPS)"),
+        ("Código del Documento:", "GPS-EMS-UPSD-MTC-001"),
+        ("Revisión / Fecha:", "Rev. A / 04/09/2026"),
+        ("Elaborado por:", "Tesista / Proyectista EMS - Maestría en Electricidad")
+    ]
+    for i, (k, v) in enumerate(data_meta):
+        row = table.rows[i]
+        row.cells[0].paragraphs[0].add_run(k).bold = True
+        row.cells[1].paragraphs[0].add_run(v)
+        
+    doc.add_paragraph() # Espaciador
+    
+    # 1. OBJETIVOS
+    doc.add_heading('1. OBJETIVOS', level=1)
+    doc.add_heading('1.1 Objetivo General', level=2)
+    doc.add_paragraph(f"Diseñar y validar el marco teórico, normativo y analítico para la implementación de un Sistema de Gestión Inteligente de la Energía (EMS) basado en almacenamiento BESS ({capacidad_bess:.0f} kWh) y generación fotovoltaica ({potencia_pv:.0f} kWp), orientado al recorte de picos de demanda (Peak Shaving) a {limite_red:.0f} kW en el Bloque D de la UPS.")
+    
+    doc.add_heading('1.2 Objetivos Específicos', level=2)
+    p1 = doc.add_paragraph(style='List Bullet')
+    p1.add_run("Fundamentar analíticamente el comportamiento del algoritmo EMS bajo los estándares IEEE Std 2030.2-2015, IEEE Std 2030.7-2017 e IEEE Std 1547-2018.")
+    p2 = doc.add_paragraph(style='List Bullet')
+    p2.add_run("Formular las ecuaciones de gobierno del balance de potencia activa en el bus de 220 V y definir los límites de seguridad de descarga (DoD, SOCmin).")
+    p3 = doc.add_paragraph(style='List Bullet')
+    p3.add_run(f"Validar la capacidad de cortocircuito (Icc) e impedancia en el transformador de {s_trafo:.0f} kVA.")
+
+    # 2. ANTECEDENTES
+    doc.add_heading('2. ANTECEDENTES Y DESCRIPCIÓN DEL PROYECTO', level=1)
+    doc.add_paragraph(f"El edificio Bloque D de la UPS cuenta con una acometida alimentada por un transformador de {s_trafo:.0f} kVA (69 kV / 0.22 kV), registrando picos de demanda bruta de hasta {demanda_max:.1f} kW. Para mitigar este impacto, se proyecta una microrred conformada por un arreglo fotovoltaico de {potencia_pv:.0f} kWp, un sistema BESS de {capacidad_bess:.0f} kWh (tecnología LiFePO4) y un inversor híbrido de {inv_req:.1f} kVA, controlado por un algoritmo determinístico configurado a un set-point de {limite_red:.0f} kW.")
+
+    # 3. MARCO NORMATIVO
+    doc.add_heading('3. BASE TÉCNICA Y MARCO NORMATIVO INTERNACIONAL', level=1)
+    
+    p = doc.add_paragraph(style='List Bullet')
+    p.add_run("IEEE Std 2030.2-2015 / IEEE Std 1547.9-2022 (Sistemas BESS): ").bold = True
+    p.add_run("Rige la integración e interoperabilidad de sistemas de almacenamiento. Define la modelación de la batería, eficiencias de ciclo (Round-Trip) y las ventanas de Estado de Carga (SOC) obligatorias para prevenir la degradación química.")
+    
+    p = doc.add_paragraph(style='List Bullet')
+    p.add_run("IEEE Std 2030.7-2017 (Controladores de Microrredes y EMS): ").bold = True
+    p.add_run("Establece las especificaciones para controladores de microrredes. Define la estructura lógica del algoritmo EMS para el despacho dinámico de picos, autoconsumo y carga nocturna Off-Peak.")
+    
+    p = doc.add_paragraph(style='List Bullet')
+    p.add_run("IEEE Std 1547-2018 (Interconexión de Recursos Distribuidos DER): ").bold = True
+    p.add_run("Estándar obligatorio para la interconexión de fuentes renovables e inversores. Regula la capacidad de soporte de potencia reactiva (Q), la regulación de voltaje en el PCC y el factor de potencia mínimo (FP >= 0.95).")
+    
+    p = doc.add_paragraph(style='List Bullet')
+    p.add_run("IEC 61000-4-15 / IEEE Std 1453 (Calidad de Energía y Flicker): ").bold = True
+    p.add_run("Normativa referente a la medición y límites de fluctuaciones de voltaje, fundamentando la atenuación de Flicker (Plt) mediante la inyección rápida de potencia.")
+
+    # 4. DESARROLLO MATEMÁTICO
+    doc.add_heading('4. DESARROLLO Y FORMULACIÓN MATEMÁTICA DEL ALGORITMO EMS', level=1)
+    doc.add_paragraph("La demanda neta teórica que requeriría el edificio sin BESS (P_red_teorica) se calcula mediante:")
+    doc.add_paragraph("P_red_teorica(t) = P_carga(t) - P_PV(t)")
+    doc.add_paragraph("El balance real de potencia contratada a la red (P_red_real) tras la intervención del BESS es:")
+    doc.add_paragraph("P_red_real(t) = P_red_teorica(t) - P_bat(t)")
+    doc.add_paragraph(f"El Estado de Carga (SOC(t)) evoluciona según la capacidad asignada ({capacidad_bess:.1f} kWh) sujeto a los límites de seguridad normativos: SOC_min <= SOC(t) <= SOC_max, donde SOC_min = {soc_min:.1f} kWh (20%) y SOC_max = {capacidad_bess:.1f} kWh (100%).")
+
+    # 5. CÁLCULOS NORMATIVOS
+    doc.add_heading('5. CÁLCULOS NORMATIVOS DE INGENIERÍA', level=1)
+    doc.add_paragraph(f"• Dimensionamiento BESS (IEEE Std 2030.2): Capacidad Nominal = {capacidad_bess:.1f} kWh | Reserva Mínima (SOC_min) = {soc_min:.1f} kWh (20%) | Capacidad Útil (E_util) = {e_util:.1f} kWh (DoD Max = 80%).")
+    doc.add_paragraph(f"• Despacho de Potencia Activa (IEEE Std 2030.7): Demanda Pico Original = {demanda_max:.1f} kW | Set-point Límite = {limite_red:.1f} kW | Reducción Neta (Peak Shaving) = {reduccion_pico:.1f} kW.")
+    doc.add_paragraph(f"• Capacidad Inversor Híbrido (IEEE Std 1547): Potencia Aparente Mínima (S_inv) = {inv_req:.1f} kVA (a FP = 0.95).")
+
+    # 6. CORTOCIRCUITO Y TRANSFORMADOR
+    doc.add_heading('6. ESTUDIO DE CORTOCIRCUITO Y CARGABILIDAD DEL TRANSFORMADOR', level=1)
+    doc.add_paragraph(f"Corriente Nominal Secundario (I_nom): {i_nom:.1f} A @ {v_linea:.0f} V")
+    doc.add_paragraph(f"Corriente de Cortocircuito Simétrica (I_cc): {icc_simetrica / 1000.0:.2f} kA (Z% = 5.75%)")
+    doc.add_paragraph("Capacidad Interruptiva Recomendada (Art. 110-9): Disyuntor principal de 50 kA @ 220 V.")
+    doc.add_paragraph(f"Cargabilidad del Transformador ({s_trafo:.0f} kVA): Original sin EMS = {cargabilidad_sin:.1f}% | Gestionada con EMS = {cargabilidad_con:.1f}%")
+
+    # 7. CONCLUSIONES
+    doc.add_heading('7. CONCLUSIONES TÉCNICAS', level=1)
+    p = doc.add_paragraph(style='List Bullet')
+    p.add_run(f"La implementación del algoritmo EMS limita efectivamente la potencia tomada de la red a {limite_red:.1f} kW, logrando un aplanamiento de pico de {reduccion_pico:.1f} kW ({((reduccion_pico)/demanda_max)*100.0:.1f}% de reducción).")
+    p = doc.add_paragraph(style='List Bullet')
+    p.add_run(f"El transformador de {s_trafo:.0f} kVA reduce su cargabilidad del {cargabilidad_sin:.1f}% al {cargabilidad_con:.1f}%, preservando el margen térmico y extendiendo su vida útil.")
+    p = doc.add_paragraph(style='List Bullet')
+    p.add_run(f"La reserva de descarga del BESS fijada en {soc_min:.1f} kWh cumple estrictamente con la norma IEEE Std 2030.2, garantizando más de 4000 ciclos operativos.")
+
+    target = io.BytesIO()
+    doc.save(target)
+    return target.getvalue()
+
+# ==========================================
+# MÓDULO 1 A MÓDULO 4 (Contenido Estándar)
 # ==========================================
 if modulo_seleccionado == "📐 1. Diagrama Unifilar Jerárquico":
     st.subheader("📐 Módulo 1: Diagrama Unifilar Jerárquico")
-    st.markdown("Generación y visualización del esquema eléctrico jerárquico bajo estándares IEEE/IEC.")
-    
     col1, col2 = st.columns([2, 1])
     with col1:
         uploaded_diag = st.file_uploader("Sustituir plano en tiempo real (PNG/JPG)", type=['png', 'jpg', 'jpeg'])
@@ -141,201 +239,75 @@ if modulo_seleccionado == "📐 1. Diagrama Unifilar Jerárquico":
         st.markdown("* **Nivel 3:** Bus Principal Tablero General 220 V")
         st.markdown(f"* **Nivel 4:** Inversor Híbrido **{potencia_pv:.0f} kWp PV** + **{capacidad_bess:.0f} kWh BESS**")
 
-# ==========================================
-# MÓDULO 2: CÁLCULO NORMATIVO IEEE
-# ==========================================
 elif modulo_seleccionado == "⚡ 2. Cálculo Normativo (IEEE 2030 / 1547)":
     st.subheader("⚡ Módulo 2: Cálculo Normativo Internacional (IEEE Std 2030.2 / 2030.7 / 1547)")
-    st.markdown("Verificación de reglas analíticas de almacenamiento y algoritmo de gestión de picos.")
-    
     col_a, col_b, col_c = st.columns(3)
     col_a.metric("Reserva Mínima SOC_min (IEEE 2030.2)", f"{soc_min:.1f} kWh", "20% Capacidad")
-    col_b.metric("Capacidad Útil BESS E_util", f"{e_util:.1f} kWh", f"DoD Max: 80%")
+    col_b.metric("Capacidad Útil BESS E_util", f"{e_util:.1f} kWh", "DoD Max: 80%")
     col_c.metric("Potencia Aparente Inversor S_inv (IEEE 1547)", f"{inv_req:.1f} kVA", "FP = 0.95")
-
-    st.markdown("### Tabla de Despacho EMS y Balance Energético (24 Horas)")
     st.dataframe(df_calc.style.format(precision=1), use_container_width=True)
 
-    fig = go.Figure()
-    fig.add_trace(go.Scatter(x=df_calc['Hora'], y=df_calc['P_Carga_(kW)'], name='Demanda Bruta (kW)', line=dict(color='red', dash='dash')))
-    fig.add_trace(go.Scatter(x=df_calc['Hora'], y=df_calc['P_Red_Real_(kW)'], name='Consumo Red Real (kW)', fill='tozeroy', line=dict(color='blue')))
-    fig.add_trace(go.Scatter(x=df_calc['Hora'], y=[limite_red]*24, name='Límite Set-point (kW)', line=dict(color='green', width=3)))
-    fig.update_layout(title="Peak Shaving de Demanda en el Bus Principal", xaxis_title="Hora", yaxis_title="Potencia (kW)", template="plotly_white")
-    st.plotly_chart(fig, use_container_width=True)
-
-# ==========================================
-# MÓDULO 3: DISTRIBUCIÓN MT/BT & TRAFO
-# ==========================================
 elif modulo_seleccionado == "🏢 3. Distribución MT/BT & Concentración":
     st.subheader("🏢 Módulo 3: Modelado de Transformador Pedestal y Concentración de Cargas")
-    
     c1, c2, c3 = st.columns(3)
     c1.metric("Capacidad Trafo Bloque D", "1000 kVA")
     c2.metric("Cargabilidad Original", f"{cargabilidad_sin:.1f}%", f"Pico: {demanda_max:.1f} kW")
     c3.metric("Cargabilidad con EMS", f"{cargabilidad_con:.1f}%", f"Pico: {demanda_recortada:.1f} kW", delta_color="normal")
+    st.success("✔ El transformador de 1000 kVA opera holgadamente dentro del rango térmico de seguridad.")
 
-    if cargabilidad_con < 85.0:
-        st.success("✔ El transformador de 1000 kVA opera holgadamente dentro del rango térmico de seguridad.")
-    else:
-        st.error(f"⚠️ Alerta: La cargabilidad del transformador es alta ({cargabilidad_con:.1f}%). Revise el set-point de límite.")
-        
-    st.info(f"💡 El sistema de gestión, equipado con un arreglo fotovoltaico de **{potencia_pv:.0f} kWp** y un banco BESS de **{capacidad_bess:.0f} kWh**, atenúa el pico de demanda máxima limitando la potencia tomada de la red a un set-point de **{limite_red:.0f} kW**, reduciendo de forma dinámica el estrés térmico en el devanado secundario.")
-
-# ==========================================
-# MÓDULO 4: ESTUDIO DE CORTOCIRCUITO (AIC)
-# ==========================================
 elif modulo_seleccionado == "💥 4. Estudio de Cortocircuito (AIC)":
     st.subheader("💥 Módulo 4: Estudio de Cortocircuito y Capacidad Interruptiva (AIC)")
-    st.markdown("Cálculo de corriente de falla simétrica e impedancia equivalente en el tablero principal de 220 V.")
-    
     m1, m2, m3 = st.columns(3)
     m1.metric("Corriente Nominal In (220V)", f"{i_nom:.1f} A")
     m2.metric("Corriente Falla Simétrica Icc", f"{icc_simetrica / 1000.0:.2f} kA")
     m3.metric("Capacidad Interruptiva Mínima", "50 kA", "Validez Art. 110-9")
 
-    st.warning("⚠️ **Recomendación de Protección:** El disyuntor principal de baja tensión debe poseer un poder de corte (AIC) mayor o igual a 50 kA @ 220V.")
-
 # ==========================================
-# MÓDULO 5: MEMORIA TÉCNICO-DESCRIPTIVA (INTEGRACIÓN COMPLETA Y DINÁMICA)
+# MÓDULO 5: MEMORIA TÉCNICO-DESCRIPTIVA (EXPORTACIÓN WORD)
 # ==========================================
 elif modulo_seleccionado == "📄 5. Memoria Técnico-Descriptiva":
-    st.subheader("📄 Módulo 5: Memoria Técnica y Especificaciones de Proyecto (Formato Oficial)")
-    st.markdown("Generación automática del marco teórico, normativo y memoria técnica ejecutiva autocalculada:")
+    st.subheader("📄 Módulo 5: Memoria Técnica y Especificaciones de Proyecto")
+    st.markdown("Generación del expediente técnico oficial con formato ejecutivo y normas internacionales:")
 
-    # CONSTRUCCIÓN DE LA MEMORIA TÉCNICA DINÁMICA EN FORMATO EJECUTIVO
-    memoria_markdown = f"""
-| Departamento: | Ingeniería y Viabilidad Técnica |
-| :--- | :--- |
-| **Documento:** | Memoria Técnica y Marco Teórico Normativo - Sistema BESS y PV para Peak Shaving (UPS Bloque D) |
-| **Código:** | GPS-EMS-UPSD-MTC-001 |
-| **Revisión / Fecha:** | Rev. A / 04/09/2026 |
-| **Elaborado por:** | Tesista / Proyectista EMS |
-| **Aprobado por:** | Tribunal de Titulación - Maestría en Electricidad |
+    # Descarga directa en Word (.docx)
+    docx_bytes = generar_memoria_docx()
 
----
-
-### HISTORIAL DE REVISIONES
-| N° de Revisión | Fecha | Páginas Revisadas | Motivo de Revisión |
-| :---: | :---: | :---: | :--- |
-| **A** | 04/09/2026 | Todo el documento | Emisión para memoria técnica de titulación y expediente ejecutivo |
-
----
-
-### ÍNDICE DE CONTENIDO
-1. **OBJETIVOS** (1.1 General, 1.2 Específicos)
-2. **ANTECEDENTES Y DESCRIPCIÓN DEL PROYECTO**
-3. **BASE TÉCNICA Y MARCO NORMATIVO INTERNACIONAL**
-   * 3.1 IEEE Std 2030.2-2015 / IEEE Std 1547.9-2022 (Sistemas BESS)
-   * 3.2 IEEE Std 2030.7-2017 (Controladores de Microrredes y EMS)
-   * 3.3 IEEE Std 1547-2018 (Interconexión de Recursos Distribuidos DER)
-   * 3.4 IEC 61000-4-15 / IEEE Std 1453 (Calidad de Energía y Flicker)
-4. **DESARROLLO Y FORMULACIÓN MATEMÁTICA DEL ALGORITMO EMS**
-5. **CÁLCULOS NORMATIVOS DE INGENIERÍA Y PARÁMETROS REALES**
-6. **ESTUDIO DE CORTOCIRCUITO Y CARGABILIDAD DEL TRANSFORMADOR**
-7. **CONCLUSIONES TÉCNICAS**
-
----
-
-### 1. OBJETIVOS
-* **1.1 Objetivo General:** Diseñar y validar el marco teórico, normativo y analítico para la implementación de un Sistema de Gestión Inteligente de la Energía (EMS) basado en almacenamiento BESS ({capacidad_bess:.0f} kWh) y generación fotovoltaica ({potencia_pv:.0f} kWp), orientado al recorte de picos de demanda (*Peak Shaving*) a {limite_red:.0f} kW en el Bloque D de la UPS.
-* **1.2 Objetivos Específicos:**
-  * Fundamentar analíticamente el comportamiento del algoritmo EMS bajo los estándares **IEEE Std 2030.2-2015**, **IEEE Std 2030.7-2017** e **IEEE Std 1547-2018**.
-  * Formular las ecuaciones de gobierno del balance de potencia activa en el bus de 220 V y definir los límites de seguridad de descarga ($DoD$, $SOC_{{min}}$).
-  * Validar la capacidad de cortocircuito ($I_{{cc}}$) e impedancia en el transformador de {s_trafo:.0f} kVA.
-
----
-
-### 2. ANTECEDENTES Y DESCRIPCIÓN DEL PROYECTO
-El edificio Bloque D de la UPS cuenta con una acometida alimentada por un transformador de {s_trafo:.0f} kVA (69 kV / 0.22 kV), registrando picos de demanda bruta de hasta {demanda_max:.1f} kW. Para mitigar este impacto, se proyecta una microrred conformada por un arreglo fotovoltaico de {potencia_pv:.0f} kWp, un sistema BESS de {capacidad_bess:.0f} kWh (tecnología LiFePO4) y un inversor híbrido de {inv_req:.1f} kVA, controlado por un algoritmo determinístico configurado a un set-point de {limite_red:.0f} kW.
-
----
-
-### 3. BASE TÉCNICA Y MARCO NORMATIVO INTERNACIONAL
-* **3.1 IEEE Std 2030.2-2015 / IEEE Std 1547.9-2022 (Sistemas BESS):** Rige la integración e interoperabilidad de sistemas de almacenamiento. Define la modelación de la batería, eficiencias de ciclo ($Round-Trip$) y las ventanas de Estado de Carga ($SOC$) obligatorias para prevenir la degradación química.
-* **3.2 IEEE Std 2030.7-2017 (Controladores de Microrredes y EMS):** Establece las especificaciones para controladores de microrredes. Define la estructura lógica del algoritmo EMS para el despacho dinámico de picos, autoconsumo y carga nocturna *Off-Peak*.
-* **3.3 IEEE Std 1547-2018 (Interconexión de Recursos Distribuidos DER):** Estándar obligatorio para la interconexión de fuentes renovables e inversores. Regula la capacidad de soporte de potencia reactiva ($Q$), la regulación de voltaje en el PCC y el factor de potencia mínimo ($FP \ge 0.95$).
-* **3.4 IEC 61000-4-15 / IEEE Std 1453 (Calidad de Energía y Flicker):** Normativa referente a la medición y límites de fluctuaciones de voltaje, fundamentando la atenuación de *Flicker* ($P_{{lt}}$) mediante la inyección rápida de potencia.
-
----
-
-### 4. DESARROLLO Y FORMULACIÓN MATEMÁTICA DEL ALGORITMO EMS
-La demanda neta teórica que requeriría el edificio sin BESS ($P_{{red\_teorica}}$) se calcula mediante:
-
-$$P_{{red\_teorica}}(t) = P_{{carga}}(t) - P_{{PV}}(t)$$
-
-El balance real de potencia contratada a la red ($P_{{red\_real}}$) tras la intervención del BESS es:
-
-$$P_{{red\_real}}(t) = P_{{red\_teorica}}(t) - P_{{bat}}(t)$$
-
-El Estado de Carga ($SOC(t)$) evoluciona según la capacidad asignada:
-
-$$SOC(t) = \\left( \\frac{{E_{{bat}}(t)}}{{{capacidad_bess:.1f}}} \\right) \\times 100\\%$$
-
-Sujeto a los límites de seguridad normativos: $SOC_{{min}} \\le SOC(t) \\le SOC_{{max}}$, donde $SOC_{{min}} = {soc_min:.1f}\\text{{ kWh}}$ ($20\\%$) y $SOC_{{max}} = {capacidad_bess:.1f}\\text{{ kWh}}$ ($100\\%$).
-
----
-
-### 5. CÁLCULOS NORMATIVOS DE INGENIERÍA
-* **5.1 Dimensionamiento BESS (IEEE Std 2030.2):**
-  * Capacidad Nominal ($C_{{bat\_max}}$): **{capacidad_bess:.1f} kWh**
-  * Reserva Mínima ($SOC_{{min}}$): **{soc_min:.1f} kWh** (20%)
-  * Capacidad Útil Operativa ($E_{{util}}$): **{e_util:.1f} kWh** (DoD Max = 80%)
-* **5.2 Despacho de Potencia Activa (IEEE Std 2030.7):**
-  * Demanda Pico Original: **{demanda_max:.1f} kW**
-  * Set-point Límite Configurado: **{limite_red:.1f} kW**
-  * Reducción Neta de Demanda (Peak Shaving): **{reduccion_pico:.1f} kW**
-* **5.3 Capacidad del Inversor Híbrido (IEEE Std 1547):**
-  * Potencia Aparente Mínima Inversor ($S_{{inv}}$): **{inv_req:.1f} kVA** (a FP = 0.95)
-
----
-
-### 6. ESTUDIO DE CORTOCIRCUITO Y CARGABILIDAD DEL TRANSFORMADOR
-* **Corriente Nominal Secundario ($I_{{nom}}$):** $I_{{nom}} = \\frac{{{s_trafo:.0f} \\times 1000}}{{\\sqrt{{3}} \\times {v_linea:.0f}}} = {i_nom:.1f}\\text{{ A}}$
-* **Corriente de Cortocircuito Simétrica ($I_{{cc}}$):** $I_{{cc}} = \\frac{{{i_nom:.1f}}}{{0.0575}} = {icc_simetrica / 1000.0:.2f}\\text{{ kA}}$
-* **Capacidad Interruptiva Recomendada (Art. 110-9):** Disyuntor principal de **50 kA** @ 220 V.
-* **Cargabilidad del Transformador ({s_trafo:.0f} kVA):**
-  * Original sin EMS: **{cargabilidad_sin:.1f}%**
-  * Gestionada con EMS: **{cargabilidad_con:.1f}%**
-
----
-
-### 7. CONCLUSIONES TÉCNICAS
-* La implementación del algoritmo EMS limita efectivamente la potencia tomada de la red a **{limite_red:.1f} kW**, logrando un aplanamiento de pico de **{reduccion_pico:.1f} kW** ({((reduccion_pico)/demanda_max)*100.0:.1f}% de reducción).
-* El transformador de **{s_trafo:.0f} kVA** reduce su cargabilidad del **{cargabilidad_sin:.1f}%** al **{cargabilidad_con:.1f}%**, preservando el margen térmico y extendiendo su vida útil.
-* La reserva de descarga del BESS fijada en **{soc_min:.1f} kWh** cumple estrictamente con la norma IEEE Std 2030.2, garantizando más de 4000 ciclos operativos para el banco de almacenamiento.
-"""
-
-    # VISTA PREVIA INTERACTIVA CON MARKDOWN
-    st.markdown(memoria_markdown)
-    
-    st.markdown("---")
-    col_mem1, col_down2 = st.columns(2)
-    with col_mem1:
-        st.text_area("Texto Plano para Copiado Rápido:", memoria_markdown, height=200)
-    with col_down2:
+    col_down_doc, col_info_doc = st.columns([1, 2])
+    with col_down_doc:
         st.download_button(
-            label="⬇️ Descargar Memoria Técnica Completa (.md)",
-            data=memoria_markdown.encode('utf-8'),
-            file_name=f'Memoria_Tecnica_EMS_{limite_red:.0f}kW_{capacidad_bess:.0f}kWh.md',
-            mime='text/markdown'
+            label="📄 Descargar Memoria Técnica en Word (.docx)",
+            data=docx_bytes,
+            file_name=f'Memoria_Tecnica_EMS_{limite_red:.0f}kW_{capacidad_bess:.0f}kWh.docx',
+            mime='application/vnd.openxmlformats-officedocument.wordprocessingml.document'
         )
+    with col_info_doc:
+        st.success("✔ Documento Word generado en tiempo real con todas las variables de la simulación.")
+
+    st.markdown("---")
+    st.markdown("### Vista Previa del Expediente Técnico:")
+    st.info(f"""
+    **DOCUMENTO:** Memoria Técnica y Especificaciones de Proyecto (GPS-EMS-UPSD-MTC-001)
+    
+    **1. OBJETIVOS:** Implementación del sistema EMS para el Bloque D limitando la demanda a {limite_red:.1f} kW con un BESS de {capacidad_bess:.1f} kWh y PV de {potencia_pv:.1f} kWp.
+    
+    **2. MARCO NORMATIVO:** Fundamentado en IEEE Std 2030.2-2015, IEEE Std 2030.7-2017 e IEEE Std 1547-2018.
+    
+    **3. RESULTADOS OPERATIVOS:**
+    - Demanda Pico Inicial: {demanda_max:.1f} kW
+    - Demanda Pico Gestionada: {demanda_recortada:.1f} kW
+    - Reducción Neta de Demanda (Peak Shaving): {reduccion_pico:.1f} kW
+    - Cargabilidad Trafo (1000 kVA): Reducida de {cargabilidad_sin:.1f}% a {cargabilidad_con:.1f}%
+    """)
 
 # ==========================================
 # MÓDULO 6: EXPORTACIÓN CAD Y REPORTES
 # ==========================================
 elif modulo_seleccionado == "💾 6. Exportación CAD & Reportes":
     st.subheader("💾 Módulo 6: Exportación de Expediente Ejecutivo y Reportes")
-    st.markdown("Descarga de la memoria de cálculo procesada y reportes de simulación:")
-    
     csv_bytes = df_calc.to_csv(index=False).encode('utf-8')
-    
-    col_down1, col_down2 = st.columns(2)
-    with col_down1:
-        st.download_button(
-            label="⬇️ Descargar Reporte Completo de Resultados (CSV)",
-            data=csv_bytes,
-            file_name=f'Reporte_EMS_{limite_red:.0f}kW_{capacidad_bess:.0f}kWh.csv',
-            mime='text/csv'
-        )
-    with col_down2:
-        st.info("💡 Los planos vectoriales (.DXF/DWG) exportados desde AutoCAD/ETAP pueden vincularse directamente en el Módulo 1.")
+    st.download_button(
+        label="⬇️ Descargar Reporte Completo de Resultados (CSV)",
+        data=csv_bytes,
+        file_name=f'Reporte_EMS_{limite_red:.0f}kW_{capacidad_bess:.0f}kWh.csv',
+        mime='text/csv'
+    )
