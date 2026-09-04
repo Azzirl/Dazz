@@ -9,7 +9,7 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# Ocultar completamente elementos y márgenes por defecto de Streamlit
+# Estilo para eliminar márgenes de Streamlit
 st.markdown("""
 <style>
     .block-container { padding: 0rem !important; }
@@ -20,7 +20,7 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# Aplicación embebida en React 18
+# Aplicación embebida en React 18 con diseño ejecutivo
 react_app_html = """
 <!DOCTYPE html>
 <html lang="es">
@@ -34,33 +34,33 @@ react_app_html = """
     
     <style>
         :root {
-            --bg-color: #f8f9fa;
+            --bg-color: #f8fafc;
             --surface-1: #ffffff;
-            --surface-2: #f1f3f5;
-            --text-primary: #212529;
-            --text-secondary: #495057;
-            --text-muted: #868e96;
-            --text-success: #2b8a3e;
-            --text-danger: #c92a2a;
-            --text-warning: #e67700;
-            --text-accent: #1c7ed6;
-            --border: #dee2e6;
-            --border-accent: #1c7ed6;
-            --bg-accent: #e7f5ff;
-            --bg-danger: #fff5f5;
-            --border-danger: #ffc9c9;
-            --bg-success: #ebfbee;
-            --border-success: #b2f2bb;
+            --surface-2: #f1f5f9;
+            --text-primary: #0f172a;
+            --text-secondary: #475569;
+            --text-muted: #94a3b8;
+            --text-success: #059669;
+            --text-danger: #dc2626;
+            --text-warning: #d97706;
+            --text-accent: #2563eb;
+            --border: #e2e8f0;
+            --border-accent: #2563eb;
+            --bg-accent: #eff6ff;
+            --bg-danger: #fef2f2;
+            --border-danger: #fecaca;
+            --bg-success: #ecfdf5;
+            --border-success: #a7f3d0;
             --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+            --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.07), 0 2px 4px -2px rgb(0 0 0 / 0.07);
         }
 
-        * {
-            box-sizing: border-box;
-        }
+        * { box-sizing: border-box; }
 
         body {
             margin: 0;
-            padding: 16px 24px;
+            padding: 20px 28px;
             background-color: var(--bg-color);
             color: var(--text-primary);
             font-family: var(--font-sans);
@@ -69,17 +69,36 @@ react_app_html = """
         }
 
         input[type="range"] {
-            accent-color: #1c7ed6;
+            accent-color: #2563eb;
             cursor: pointer;
+            height: 6px;
         }
 
         pre, code {
-            font-family: SFMono-Regular, Consolas, "Liberation Mono", Menlo, monospace;
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
         }
 
-        button:hover {
-            opacity: 0.95;
+        .card {
+            background: var(--surface-1);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 16px;
+            box-shadow: var(--shadow-sm);
         }
+
+        .badge {
+            display: inline-flex;
+            align-items: center;
+            padding: 3px 8px;
+            border-radius: 6px;
+            font-size: 11px;
+            font-weight: 600;
+            letter-spacing: 0.3px;
+        }
+
+        .badge-blue { background: #dbeafe; color: #1e40af; }
+        .badge-green { background: #d1fae5; color: #065f46; }
+        .badge-slate { background: #f1f5f9; color: #334155; }
     </style>
 </head>
 <body>
@@ -102,9 +121,9 @@ react_app_html = """
         };
 
         const COLORS = {
-          blue:"#2a78d6", orange:"#eb6834", green:"#1baf7a",
-          yellow:"#eda100", red:"#e34948", gray:"#888780",
-          violet:"#6250d6", teal:"#0F6E56"
+          blue:"#2563eb", orange:"#f97316", green:"#10b981",
+          yellow:"#f59e0b", red:"#ef4444", gray:"#64748b",
+          violet:"#8b5cf6", teal:"#0d9488"
         };
 
         function runEMS(loadArr, pvArr, pLim, cBat, cargaNocturna) {
@@ -128,14 +147,14 @@ react_app_html = """
           return rows;
         };
 
-        const MODULES = ["Datos del Proyecto","Diagrama Unifilar","EMS & Peak Shaving","Calidad de Energía","Dimensionamiento FV+BESS","Comparador Real vs Sim","Memoria Técnica","Código MATLAB / ETAP"];
+        const MODULES = ["Configuración & Control","Diagrama Unifilar","EMS & Peak Shaving","Calidad de Energía","Dimensionamiento FV+BESS","Comparador Real vs Sim","Memoria Técnica","Código MATLAB / ETAP"];
 
         function MetricCard({ label, value, unit, sub, color }) {
           return (
-            <div style={{ background:"var(--surface-1)", borderRadius:8, padding:"14px 16px", border:"1px solid var(--border)", boxShadow:"0 1px 3px rgba(0,0,0,0.03)" }}>
-              <div style={{ fontSize:12, color:"var(--text-secondary)", marginBottom:4, fontWeight:500 }}>{label}</div>
-              <div style={{ fontSize:24, fontWeight:600, color: color||"var(--text-primary)" }}>{value}<span style={{ fontSize:13, marginLeft:4, color:"var(--text-muted)", fontWeight:400 }}>{unit}</span></div>
-              {sub && <div style={{ fontSize:11, color:"var(--text-muted)", marginTop:4 }}>{sub}</div>}
+            <div className="card">
+              <div style={{ fontSize:12, color:"var(--text-secondary)", marginBottom:6, fontWeight:500 }}>{label}</div>
+              <div style={{ fontSize:26, fontWeight:700, color: color||"var(--text-primary)", letterSpacing:"-0.5px" }}>{value}<span style={{ fontSize:13, marginLeft:4, color:"var(--text-muted)", fontWeight:400 }}>{unit}</span></div>
+              {sub && <div style={{ fontSize:11, color:"var(--text-muted)", marginTop:4, fontWeight:500 }}>{sub}</div>}
             </div>
           );
         }
@@ -152,11 +171,11 @@ react_app_html = """
             const allVals = data.flat(); const maxV = Math.max(...allVals)*1.1||1; const minV = Math.min(0,...allVals);
             const padL=32, padR=12, padT=12, padB=22;
             const W2=W-padL-padR, H2=H-padT-padB;
-            ctx.strokeStyle="#e9ecef"; ctx.lineWidth=1;
+            ctx.strokeStyle="#f1f5f9"; ctx.lineWidth=1;
             [0,0.25,0.5,0.75,1].forEach(t=>{
               const y=padT+H2*(1-t);
               ctx.beginPath(); ctx.moveTo(padL,y); ctx.lineTo(padL+W2,y); ctx.stroke();
-              ctx.fillStyle="#868e96"; ctx.font="10px sans-serif"; ctx.textAlign="right";
+              ctx.fillStyle="#94a3b8"; ctx.font="10px sans-serif"; ctx.textAlign="right";
               ctx.fillText(Math.round(maxV*t),padL-4,y+3);
             });
             const n = labels.length;
@@ -168,7 +187,7 @@ react_app_html = """
               });
               ctx.stroke();
             });
-            ctx.fillStyle="#868e96"; ctx.font="10px sans-serif"; ctx.textAlign="center";
+            ctx.fillStyle="#94a3b8"; ctx.font="10px sans-serif"; ctx.textAlign="center";
             [0,6,12,18,23].forEach(i => ctx.fillText(labels[i], padL+W2*(i/(n-1)), H-4));
           }, [data, labels, colors, height]);
           return <canvas ref={canvasRef} style={{ width:"100%", height }} />;
@@ -183,7 +202,7 @@ react_app_html = """
           const eUtil = (cBat*0.80).toFixed(0);
 
           const Box = ({ x, y, w, h, fill="#E6F1FB", stroke="#185FA5", children }) => (
-            <g><rect x={x} y={y} width={w} height={h} fill={fill} stroke={stroke} strokeWidth="1.5" rx="4"/>{children}</g>
+            <g><rect x={x} y={y} width={w} height={h} fill={fill} stroke={stroke} strokeWidth="1.5" rx="5"/>{children}</g>
           );
           const Txt = ({ x, y, s=10, bold=false, color="#0C447C", children }) => (
             <text x={x} y={y} fontSize={s} fontWeight={bold?"600":"400"} fill={color} textAnchor="middle">{children}</text>
@@ -191,64 +210,64 @@ react_app_html = """
           const Line = ({ x1,y1,x2,y2,color="#333",w=2 }) => <line x1={x1} y1={y1} x2={x2} y2={y2} stroke={color} strokeWidth={w}/>;
 
           return (
-            <svg viewBox="0 0 800 520" style={{ width:"100%", border:"1px solid var(--border)", borderRadius:8, background:"var(--surface-1)" }}>
-              <Txt x={400} y={22} s={12} bold color="#0C447C">DIAGRAMA UNIFILAR JERÁRQUICO — SISTEMA EMS BLOQUE D (IEEE 2030.7 / 1547)</Txt>
-              <Line x1={400} y1={30} x2={400} y2={60} color="#555"/>
-              <Box x={260} y={60} w={280} h={48} fill="#E6F1FB" stroke="#185FA5">
-                <Txt x={400} y={78} s={11} bold>ACOMETIDA RED PRINCIPAL CNEL — 69 kV / 13.8 kV</Txt>
-                <Txt x={400} y={94} s={9.5} color="#185FA5">3F-3H · 60 Hz · Apartarrayos 12 kV</Txt>
+            <svg viewBox="0 0 800 520" style={{ width:"100%", border:"1px solid var(--border)", borderRadius:10, background:"var(--surface-1)", boxShadow:"var(--shadow-sm)" }}>
+              <Txt x={400} y={22} s={12} bold color="#0f172a">DIAGRAMA UNIFILAR JERÁRQUICO — SISTEMA EMS BLOQUE D (IEEE 2030.7 / 1547)</Txt>
+              <Line x1={400} y1={30} x2={400} y2={60} color="#64748b"/>
+              <Box x={260} y={60} w={280} h={48} fill="#eff6ff" stroke="#2563eb">
+                <Txt x={400} y={78} s={11} bold color="#1e40af">ACOMETIDA RED PRINCIPAL CNEL — 69 kV / 13.8 kV</Txt>
+                <Txt x={400} y={94} s={9.5} color="#2563eb">3F-3H · 60 Hz · Apartarrayos 12 kV</Txt>
               </Box>
-              <Line x1={400} y1={108} x2={400} y2={130} color="#555"/>
-              <circle cx={400} cy={140} r={16} fill="none" stroke="#185FA5" strokeWidth={2}/>
-              <circle cx={400} cy={160} r={16} fill="none" stroke="#185FA5" strokeWidth={2}/>
-              <Txt x={400} y={144} s={10} color="#185FA5">Δ</Txt>
-              <Txt x={400} y={164} s={10} color="#185FA5">Y</Txt>
-              <Box x={480} y={125} w={240} h={66} fill="#EBF5FB" stroke="#3498DB">
-                <Txt x={600} y={144} s={10} bold>TRANSFORMADOR PEDESTAL {sTrafo} kVA</Txt>
-                <Txt x={600} y={158} s={9} color="#1B4F72">Primario: 69 kV / 13.8 kV (Delta)</Txt>
-                <Txt x={600} y={170} s={9} color="#1B4F72">Secundario: {vNom}/127 V (3F-4H, Dyn11)</Txt>
-                <Txt x={600} y={182} s={8.5} color="#922B21">In={iNom.toFixed(0)} A · Icc_sim={icc} kA (Z%=5.75%)</Txt>
+              <Line x1={400} y1={108} x2={400} y2={130} color="#64748b"/>
+              <circle cx={400} cy={140} r={16} fill="none" stroke="#2563eb" strokeWidth={2}/>
+              <circle cx={400} cy={160} r={16} fill="none" stroke="#2563eb" strokeWidth={2}/>
+              <Txt x={400} y={144} s={10} color="#2563eb">Δ</Txt>
+              <Txt x={400} y={164} s={10} color="#2563eb">Y</Txt>
+              <Box x={480} y={125} w={240} h={66} fill="#f0f9ff" stroke="#0284c7">
+                <Txt x={600} y={144} s={10} bold color="#0369a1">TRANSFORMADOR PEDESTAL {sTrafo} kVA</Txt>
+                <Txt x={600} y={158} s={9} color="#334155">Primario: 69 kV / 13.8 kV (Delta)</Txt>
+                <Txt x={600} y={170} s={9} color="#334155">Secundario: {vNom}/127 V (3F-4H, Dyn11)</Txt>
+                <Txt x={600} y={182} s={8.5} color="#b91c1c">In={iNom.toFixed(0)} A · Icc_sim={icc} kA (Z%=5.75%)</Txt>
               </Box>
-              <Line x1={400} y1={176} x2={400} y2={196} color="#555"/>
-              <rect x={382} y={196} width={36} height={20} fill="white" stroke="#333" strokeWidth={1.5} rx={2}/>
-              <Txt x={400} y={210} s={9} bold color="#333">ITM</Txt>
-              <Txt x={510} y={208} s={9} color="#0a6b0a">DISYUNTOR TGBT: 3P-2000A · 50 kA AIC</Txt>
-              <Line x1={400} y1={216} x2={400} y2={235} color="#555"/>
-              <Line x1={100} y1={235} x2={700} y2={235} color="#2a78d6" w={5}/>
-              <Txt x={400} y={228} s={9.5} bold color="#042C53">TABLERO GENERAL DE DISTRIBUCIÓN (TGBT) — BUS {vNom}/127V · 3F-4H</Txt>
-              <Line x1={220} y1={235} x2={220} y2={265} color="#555"/>
-              <rect x={202} y={265} width={36} height={18} fill="white" stroke="#333" strokeWidth={1.2} rx={2}/>
-              <Txt x={220} y={278} s={8} color="#333">3P</Txt>
-              <Line x1={220} y1={283} x2={220} y2={305} color="#e34948" w={1.5}/>
-              <Box x={130} y={305} w={180} h={60} fill="#FDEDEC" stroke="#E74C3C">
-                <Txt x={220} y={323} s={9.5} bold color="#922B21">CARGAS BLOQUE D (UPS)</Txt>
-                <Txt x={220} y={338} s={8.5} color="#333">Demanda Pico: 179.1 kW</Txt>
-                <Txt x={220} y={352} s={8.5} color="#333">Carga Base: 36.0 kW</Txt>
+              <Line x1={400} y1={176} x2={400} y2={196} color="#64748b"/>
+              <rect x={382} y={196} width={36} height={20} fill="white" stroke="#334155" strokeWidth={1.5} rx={2}/>
+              <Txt x={400} y={210} s={9} bold color="#334155">ITM</Txt>
+              <Txt x={510} y={208} s={9} color="#15803d" bold>DISYUNTOR TGBT: 3P-2000A · 50 kA AIC</Txt>
+              <Line x1={400} y1={216} x2={400} y2={235} color="#64748b"/>
+              <Line x1={100} y1={235} x2={700} y2={235} color="#2563eb" w={5}/>
+              <Txt x={400} y={228} s={9.5} bold color="#1e3a8a">TABLERO GENERAL DE DISTRIBUCIÓN (TGBT) — BUS {vNom}/127V · 3F-4H</Txt>
+              <Line x1={220} y1={235} x2={220} y2={265} color="#64748b"/>
+              <rect x={202} y={265} width={36} height={18} fill="white" stroke="#334155" strokeWidth={1.2} rx={2}/>
+              <Txt x={220} y={278} s={8} color="#334155">3P</Txt>
+              <Line x1={220} y1={283} x2={220} y2={305} color="#ef4444" w={1.5}/>
+              <Box x={130} y={305} w={180} h={60} fill="#fef2f2" stroke="#ef4444">
+                <Txt x={220} y={323} s={9.5} bold color="#991b1b">CARGAS BLOQUE D (UPS)</Txt>
+                <Txt x={220} y={338} s={8.5} color="#334155">Demanda Pico: 179.1 kW</Txt>
+                <Txt x={220} y={352} s={8.5} color="#334155">Carga Base: 36.0 kW</Txt>
               </Box>
-              <Line x1={580} y1={235} x2={580} y2={265} color="#555"/>
-              <rect x={562} y={265} width={36} height={18} fill="white" stroke="#333" strokeWidth={1.2} rx={2}/>
-              <Txt x={580} y={278} s={8} color="#333">3P</Txt>
-              <Line x1={580} y1={283} x2={580} y2={305} color="#6250d6" w={1.5}/>
-              <Box x={488} y={305} w={184} h={60} fill="#F4ECF7" stroke="#884EA0">
-                <Txt x={580} y={323} s={9.5} bold color="#512E5F">INVERSOR HÍBRIDO MULTIMODO</Txt>
-                <Txt x={580} y={338} s={8.5} color="#333">S_nom={invKva} kVA · FP=0.95</Txt>
-                <Txt x={580} y={352} s={8.5} color="#512E5F">Control EMS Set-point: {pLim} kW</Txt>
+              <Line x1={580} y1={235} x2={580} y2={265} color="#64748b"/>
+              <rect x={562} y={265} width={36} height={18} fill="white" stroke="#334155" strokeWidth={1.2} rx={2}/>
+              <Txt x={580} y={278} s={8} color="#334155">3P</Txt>
+              <Line x1={580} y1={283} x2={580} y2={305} color="#8b5cf6" w={1.5}/>
+              <Box x={488} y={305} w={184} h={60} fill="#faf5ff" stroke="#a855f7">
+                <Txt x={580} y={323} s={9.5} bold color="#6b21a8">INVERSOR HÍBRIDO MULTIMODO</Txt>
+                <Txt x={580} y={338} s={8.5} color="#334155">S_nom={invKva} kVA · FP=0.95</Txt>
+                <Txt x={580} y={352} s={8.5} color="#6b21a8" bold>Control EMS Set-point: {pLim} kW</Txt>
               </Box>
-              <Line x1={540} y1={365} x2={540} y2={395} color="#eb6834" w={1.5}/>
-              <Line x1={620} y1={365} x2={620} y2={395} color="#1baf7a" w={1.5}/>
-              <Box x={485} y={395} w={110} h={60} fill="#FEF9E7" stroke="#F1C40F">
-                <Txt x={540} y={414} s={9} bold color="#7D6608">ARREGLO PV</Txt>
-                <Txt x={540} y={428} s={8.5} color="#333">{pPV} kWp</Txt>
-                <Txt x={540} y={442} s={8} color="#555">PERC 550W</Txt>
+              <Line x1={540} y1={365} x2={540} y2={395} color="#f97316" w={1.5}/>
+              <Line x1={620} y1={365} x2={620} y2={395} color="#10b981" w={1.5}/>
+              <Box x={485} y={395} w={110} h={60} fill="#fefce8" stroke="#eab308">
+                <Txt x={540} y={414} s={9} bold color="#854d0e">ARREGLO PV</Txt>
+                <Txt x={540} y={428} s={8.5} color="#334155">{pPV} kWp</Txt>
+                <Txt x={540} y={442} s={8} color="#64748b">Módulos PERC 550W</Txt>
               </Box>
-              <Box x={605} y={395} w={115} h={60} fill="#E8F8F5" stroke="#2ECC71">
-                <Txt x={662} y={414} s={9} bold color="#085041">BANCO BESS LiFePO4</Txt>
-                <Txt x={662} y={428} s={8.5} color="#333">{cBat} kWh (512V)</Txt>
-                <Txt x={662} y={442} s={8} color="#555">E_util: {eUtil} kWh (80%DoD)</Txt>
+              <Box x={605} y={395} w={115} h={60} fill="#ecfdf5" stroke="#10b981">
+                <Txt x={662} y={414} s={9} bold color="#065f46">BANCO BESS LiFePO4</Txt>
+                <Txt x={662} y={428} s={8.5} color="#334155">{cBat} kWh (512V)</Txt>
+                <Txt x={662} y={442} s={8} color="#64748b">E_util: {eUtil} kWh (80%DoD)</Txt>
               </Box>
-              <Box x={80} y={465} w={640} h={46} fill="#F8F9FA" stroke="#ccc">
-                <Txt x={400} y={484} s={8.5} bold color="#333">CONFIGURACIÓN SISTEMA REGISTRADA</Txt>
-                <Txt x={400} y={498} s={8} color="#555">
+              <Box x={80} y={465} w={640} h={46} fill="#f8fafc" stroke="#cbd5e1">
+                <Txt x={400} y={484} s={8.5} bold color="#334155">PARÁMETROS OPERATIVOS DEL SISTEMA</Txt>
+                <Txt x={400} y={498} s={8} color="#64748b">
                   P_lim={pLim} kW · BESS={cBat} kWh · PV={pPV} kWp · V={vNom} V · Trafo={sTrafo} kVA · Icc={icc} kA
                 </Txt>
               </Box>
@@ -258,17 +277,36 @@ react_app_html = """
 
         function TabBar({ tabs, active, onSelect }) {
           return (
-            <div style={{ display:"flex", flexWrap:"wrap", gap:6, marginBottom:20, background:"var(--surface-1)", padding:6, borderRadius:8, border:"1px solid var(--border)" }}>
+            <div style={{ display:"flex", flexWrap:"wrap", gap:8, marginBottom:20, background:"var(--surface-1)", padding:6, borderRadius:10, border:"1px solid var(--border)", boxShadow:"var(--shadow-sm)" }}>
               {tabs.map((t,i) => (
                 <button key={i} onClick={()=>onSelect(i)} style={{
-                  padding:"8px 14px", fontSize:12, borderRadius:6,
+                  padding:"9px 16px", fontSize:12, borderRadius:7,
                   border: active===i ? "1px solid var(--border-accent)" : "1px solid transparent",
                   background: active===i ? "var(--bg-accent)" : "transparent",
                   color: active===i ? "var(--text-accent)" : "var(--text-secondary)",
                   cursor:"pointer", fontWeight: active===i ? 600 : 500,
-                  transition: "all 0.15s ease"
+                  transition: "all 0.15s ease-in-out"
                 }}>{t}</button>
               ))}
+            </div>
+          );
+        }
+
+        function SliderControl({ label, val, setVal, min, max, step=1, unit }) {
+          return (
+            <div className="card" style={{ padding:14 }}>
+              <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:8 }}>
+                <span style={{ fontSize:12, color:"var(--text-secondary)", fontWeight:600 }}>{label}</span>
+                <span style={{ fontSize:13, fontWeight:700, color:"var(--text-accent)", background:"var(--bg-accent)", padding:"2px 8px", borderRadius:6 }}>
+                  {val} <span style={{ fontSize:11, fontWeight:500, color:"var(--text-secondary)" }}>{unit}</span>
+                </span>
+              </div>
+              <input type="range" min={min} max={max} step={step} value={val}
+                onChange={e=>setVal(+e.target.value)} style={{ width:"100%" }} />
+              <div style={{ display:"flex", justifyContent:"space-between", fontSize:10, color:"var(--text-muted)", marginTop:4 }}>
+                <span>{min} {unit}</span>
+                <span>{max} {unit}</span>
+              </div>
             </div>
           );
         }
@@ -281,9 +319,6 @@ react_app_html = """
           const [vNom, setVNom] = useState(220);
           const [sTrafo, setSTrafo] = useState(1000);
           const [cargaNoc, setCargaNoc] = useState(40);
-          const [nombreProyecto, setNombreProyecto] = useState("EMS Bloque D — UPS GYE");
-          const [responsable, setResponsable] = useState("Maestrante en Electricidad");
-          const [tutor, setTutor] = useState("Ing. Gary Ampuño Aviles");
           const [showExport, setShowExport] = useState(false);
 
           const factor = pPV / 150;
@@ -305,10 +340,8 @@ react_app_html = """
           const energiaDia = (REAL_DATA.irradiation_gye.reduce((a,b)=>a+b,0) * pPV * 0.80).toFixed(0);
 
           const renderMatlabCode = () => `%% ============================================================
-%% EMS Peak Shaving — ${nombreProyecto}
+%% EMS Peak Shaving — UPS Bloque D
 %% Generado automáticamente por Suite EMS Tesis
-%% Responsable: ${responsable} | Tutor: ${tutor}
-%% Fecha: ${new Date().toLocaleDateString()}
 %% Normas: IEEE 2030.7-2017 / IEEE 1547-2018
 %% ============================================================
 clear; clc; close all;
@@ -322,7 +355,7 @@ S_trafo  = ${sTrafo};    % Potencia trafo [kVA]
 Z_trafo  = 5.75;          % Impedancia trafo [%]
 FP_inv   = 0.95;          % Factor de potencia inversor
 
-%% Datos medidos Bloque D (informe Atheus, agosto 2022)
+%% Datos medidos Bloque D
 P_carga = [${REAL_DATA.hourly_load.join(", ")}]; % [kW] 24h
 P_PV_base = [${REAL_DATA.pv_base.join(", ")}];    % [kW] perfil FV base
 
@@ -377,99 +410,33 @@ fprintf('Icc transformador     : %.2f kA\\n', Icc/1000);
 fprintf('Corriente nominal BT  : %.1f A\\n', In_BT);
 fprintf('Potencia inversor     : %.1f kVA\\n', S_inv);
 fprintf('Energía útil BESS     : %.1f kWh\\n', E_util);
-
-%% Gráficas
-horas = 0:23;
-figure('Name','EMS Peak Shaving — ${nombreProyecto}','NumberTitle','off');
-
-subplot(3,1,1);
-plot(horas, P_carga, 'b-o', 'LineWidth',1.5, 'DisplayName','Demanda real'); hold on;
-plot(horas, P_red,   'r--s', 'LineWidth',1.5, 'DisplayName','P red con EMS');
-plot(horas, P_PV_real,'g-^','LineWidth',1.2,'DisplayName','Generación PV');
-yline(P_lim,'k--','Set-point','LabelHorizontalAlignment','left');
-xlabel('Hora del día'); ylabel('Potencia [kW]');
-title('Perfiles de Potencia — Peak Shaving'); legend; grid minor;
-
-subplot(3,1,2);
-bar(horas, P_bat, 'FaceColor',[0.6 0.4 0.8],'DisplayName','P batería');
-xlabel('Hora del día'); ylabel('P_{bat} [kW]');
-title('Despacho BESS (>0 descarga, <0 carga)'); grid minor;
-
-subplot(3,1,3);
-plot(horas, SOC, 'k-d', 'LineWidth',1.5);
-yline(20,'r--','SOC_{min}'); yline(100,'g--','SOC_{max}');
-xlabel('Hora del día'); ylabel('SOC [%]');
-title('Estado de Carga BESS'); ylim([0 110]); grid minor;
-
-%% Exportar a Excel
-T = table(horas', P_carga', P_PV_real', P_bat', P_red', SOC', ...
-    'VariableNames',{'Hora','P_Carga_kW','P_PV_kW','P_Bat_kW','P_Red_kW','SOC_pct'});
-writetable(T, 'Resultados_EMS_BloquD.xlsx');
-disp('Resultados exportados a Resultados_EMS_BloquD.xlsx');
 `;
 
-          const renderETAPInstructions = () => `=== GUÍA PARA MODELADO EN ETAP ===
-Proyecto: ${nombreProyecto}
-Generado: ${new Date().toLocaleDateString()}
+          const renderETAPInstructions = () => `=== GUÍA DE MODELADO EN ETAP ===
+Proyecto: Sistema EMS Bloque D — UPS GYE
+Fecha: ${new Date().toLocaleDateString()}
 
 1. CONFIGURACIÓN GENERAL
-   - Frecuencia: 60 Hz
-   - Base kVA: ${sTrafo} kVA
-   - Base kV (BT): ${vNom/1000} kV
-   - Base kV (MT): 13.8 kV
+   - Frecuencia: 60 Hz | Base kVA: ${sTrafo} kVA | Base kV: ${vNom/1000} kV
 
 2. ELEMENTOS A MODELAR
    a) Red CNEL: Fuente infinita 13.8 kV, SCC = 500 MVA
-   b) Transformador pedestal:
-      * ${sTrafo} kVA, 13.8 kV / ${vNom/1000} kV, Dyn11
-      * %Z = 5.75%, %R = 1.1%, Grupo Dyn11
-      * Icc secundario: ${(icc/1000).toFixed(2)} kA
+   b) Transformador pedestal: ${sTrafo} kVA, 13.8 kV / ${vNom/1000} kV, Dyn11 (%Z = 5.75%, Icc = ${(icc/1000).toFixed(2)} kA)
    c) Bus TGBT: ${vNom} V, 3F+N
-   d) Cargas Bloque D:
-      * Pico: ${demPico.toFixed(1)} kW, FP = 0.92
-      * Perfil de carga: importar desde CSV adjunto
-   e) Inversor Solar (PVS):
-      * ${invKva} kVA, FP = 0.95 inductivo
-      * Conectar al bus TGBT mediante CB 3P
-   f) Sistema PV:
-      * ${pPV} kWp, ${numMod} módulos PERC 550 Wp
-      * Conectar al lado DC del inversor
-   g) BESS:
-      * ${cBat} kWh, 512 V DC, LiFePO4
-      * C-rate: 0.5C → P_max = ${(cBat*0.5).toFixed(0)} kW
-      * SOC inicial: 50%, SOC_min: 20%, SOC_max: 100%
+   d) Inversor Solar (PVS): ${invKva} kVA, FP = 0.95 inductivo
+   e) Sistema PV: ${pPV} kWp (${numMod} módulos PERC 550 Wp)
+   f) BESS: ${cBat} kWh, 512 V DC (LiFePO4, C-rate 0.5C)
 
-3. PROTECCIONES
-   - Disyuntor principal: 3P-2000A, Icu = 50 kA
-   - Protección trafo: Diferencial (87T)
-   - Rel. de sobrecorriente: 51/51N
-   - Rel. anti-isla inversor: 81O/U, 27, 59 (IEEE 1547)
-
-4. ESTUDIOS A EJECUTAR EN ETAP
-   a) Load Flow: Newton-Raphson, tolerancia 0.001
-   b) Short Circuit: ANSI/IEEE Std 141 y 399
-   c) Motor Starting: si aplica
-   d) Harmonic Analysis: hasta armónico 25 (norma EN 50160)
-   e) Arc Flash: IEEE 1584-2018
-
-5. COMPARACIÓN CON DATOS REALES
-   - Importar datos medidos: METREL MI2792 (informe agosto 2022)
-   - Variables: I1, I2, I3, IN, U1, U2, U3, P, Q, S, FP, THD, Plt
-   - Validar: error relativo < 5% en P_total y FP
-
-ARCHIVOS ASOCIADOS:
-   - Resultados_EMS_BloquD.xlsx (exportado desde MATLAB)
-   - INFORME_Bloque_D.pdf (datos reales METREL)
-   - Plano_Unifilar_EMS.dxf (para importar topología)
+3. PROTECCIONES & ESTUDIOS
+   - Disyuntor principal: 3P-2000A, Icu = 50 kA (NEC Art. 110-9)
+   - Estudios: Load Flow (Newton-Raphson), Short Circuit (ANSI Std 141/399), Arc Flash (IEEE 1584).
 `;
 
           const renderMemoria = () => `
 MEMORIA TÉCNICA Y ESPECIFICACIONES DE PROYECTO
 ═══════════════════════════════════════════════════════════════
-Proyecto: ${nombreProyecto}
+Proyecto: Sistema EMS Peak Shaving — Bloque D (UPS GYE)
 Código: GPS-EMS-UPSD-MTC-001  Rev. C
-Responsable: ${responsable}
-Tutor: ${tutor}
 Fecha: ${new Date().toLocaleDateString()}
 Normas: IEEE 2030.7-2017 | IEEE 1547-2018 | EN 50160 | NEC Art.110-9
 ═══════════════════════════════════════════════════════════════
@@ -479,123 +446,62 @@ Normas: IEEE 2030.7-2017 | IEEE 1547-2018 | EN 50160 | NEC Art.110-9
    Edificio D (UPS Guayaquil), limitando la demanda a la red a
    ${pLim} kW mediante un BESS de ${cBat} kWh y sistema FV de ${pPV} kWp.
 
-2. ANTECEDENTES
-   La Universidad Politécnica Salesiana, sede Guayaquil, Campus
-   Centenario (calles Robles 107 y Chambers), registró fluctuaciones
-   de tensión y picos de demanda en el Bloque D (laboratorios).
-   La medición con METREL MI2792 PowerQ4 Plus (18-26/07/2022, 8 días,
-   1168 intervalos de 10 min) detectó:
-   · Demanda pico bruta:    179.1 kW (hora 12:00-13:00)
-   · Potencia aparente máx: 180.9 kVA
-   · Factor de potencia mín: 0.63 (nocturno)
-   · Flicker PLT:            hasta 1.12 → NO CUMPLE EN 50160
-   · THD tensión:            máx 2.2% → CUMPLE (< 8%)
-   · Desequilibrio:          0.45-0.82% → CUMPLE (< 2%)
-   · Frecuencia:             59.98-60.02 Hz → CUMPLE
-
-3. BASE TÉCNICA Y NORMATIVA
-   IEEE Std 2030.2-2015  — Sistemas de almacenamiento BESS
-   IEEE Std 2030.7-2017  — Algoritmos de gestión EMS
-   IEEE Std 1547-2018    — Interconexión de recursos distribuidos
-   EN 50160              — Calidad de tensión en BT
-   NEC Art. 110-9        — Capacidad interruptiva
-
-4. SISTEMA DE POTENCIA EXISTENTE
+2. SISTEMA DE POTENCIA EXISTENTE
    Transformador pedestal: ${sTrafo} kVA, 13.8kV/220V, Dyn11, Z%=5.75%
    · Corriente nominal BT: ${iNom.toFixed(1)} A
    · Icc simétrica:        ${(icc/1000).toFixed(2)} kA
    · Cargabilidad orig.:   ${cargSin}%  →  Con EMS: ${cargCon}%
    · Disyuntor principal:  3P-2000A, 50 kA AIC (NEC Art.110-9 ✓)
 
-5. DIMENSIONAMIENTO SISTEMA FV
-   · Potencia pico:        ${pPV} kWp
-   · Número de módulos:    ${numMod} uds. PERC 550 Wp (35V, 15.7A)
-   · Área requerida:        ${areaMod} m²
-   · Energía diaria GYE:   ${energiaDia} kWh/día (HPS=4.3 h/día)
-   · Eficiencia sistema:   80% (pérd. calor, cableado, inversor)
-   · Potencia inversor:    ${invKva} kVA (FP=0.95, IEEE 1547 ✓)
+3. DIMENSIONAMIENTO FOTOVOLTAICO Y BESS
+   · Potencia pico PV:     ${pPV} kWp (${numMod} módulos PERC 550 Wp, ${areaMod} m²)
+   · Energía diaria GYE:   ~${energiaDia} kWh/día (HPS=4.3 h)
+   · Capacidad BESS:       ${cBat} kWh (LiFePO4, 512 V DC)
+   · Energía útil (DoD80): ${eUtil} kWh (SOC_min = ${socMin} kWh)
 
-6. DIMENSIONAMIENTO BESS
-   · Capacidad nominal:    ${cBat} kWh, LiFePO4, 512 V DC
-   · Energía útil (DoD80): ${eUtil} kWh
-   · SOC mínimo (IEEE2030): ${socMin} kWh (20%)
-   · Potencia de descarga:  ${(cBat*0.5).toFixed(0)} kW (C-rate 0.5C)
-   · Ciclos de vida:        ~4000 ciclos (@ DoD 80%)
-   · Autonomía nocturna:   ${(parseFloat(eUtil)/cargaNoc).toFixed(1)} h a ${cargaNoc} kW
-
-7. ALGORITMO EMS — PEAK SHAVING
-   Lógica determinística en lazo cerrado:
-   · Si P_carga - P_PV > P_lim → descargar BESS
-   · Si 01:00-05:00 y SOC < 100% → cargar BESS (${cargaNoc} kW)
-   · Restricciones: SOC_min=${socMin}kWh ≤ E_bat ≤ ${cBat}kWh
-
-   RESULTADOS DE SIMULACIÓN:
+4. RESULTADOS DE SIMULACIÓN EMS
    · Demanda pico original:  ${demPico.toFixed(1)} kW
    · Demanda pico recortada: ${redPico.toFixed(1)} kW
    · Reducción de pico:      ${reduccion} kW (${((parseFloat(reduccion)/demPico)*100).toFixed(1)}%)
    · Cargabilidad trafo:     ${cargSin}% → ${cargCon}%
-
-8. CONCLUSIONES
-   a) El sistema EMS permite reducir la demanda máxima en ${reduccion} kW,
-      llevando la cargabilidad del trafo de ${cargSin}% a ${cargCon}%.
-   b) El flicker (Plt>1) identificado en mediciones requiere la
-      instalación de un control VAR electrónico (EVC) o estabilizador.
-   c) El sistema FV de ${pPV} kWp genera ~${energiaDia} kWh/día,
-      reduciendo la dependencia de la red en horas solares.
-   d) La validación en ETAP confirmará los resultados de simulación
-      y verificará las protecciones (AIC = 50 kA).
-
-─────────────────────────────────────────────────────────────
-Firma: ___________________    Revisado: ___________________
-       ${responsable}                 ${tutor}
 `;
-
-          const Input = ({ label, val, setVal, min, max, step=1, unit }) => (
-            <div style={{ marginBottom:12 }}>
-              <div style={{ display:"flex", justifyContent:"space-between", marginBottom:4 }}>
-                <span style={{ fontSize:12, color:"var(--text-secondary)", fontWeight:500 }}>{label}</span>
-                <span style={{ fontSize:12, fontWeight:600 }}>{val} <span style={{ color:"var(--text-muted)", fontWeight:400 }}>{unit}</span></span>
-              </div>
-              <input type="range" min={min} max={max} step={step} value={val}
-                onChange={e=>setVal(+e.target.value)} style={{ width:"100%" }} />
-            </div>
-          );
-
-          const TextIn = ({ label, val, setVal, full }) => (
-            <div style={{ marginBottom:8, gridColumn: full?"1 / -1":"auto" }}>
-              <label style={{ fontSize:12, color:"var(--text-secondary)", display:"block", marginBottom:4, fontWeight:500 }}>{label}</label>
-              <input type="text" value={val} onChange={e=>setVal(e.target.value)}
-                style={{ width:"100%", fontSize:13, padding:"8px 10px", borderRadius:6,
-                  border:"1px solid var(--border)", background:"var(--surface-1)", color:"var(--text-primary)", boxSizing:"border-box" }} />
-            </div>
-          );
 
           return (
             <div style={{ width:"100%", boxSizing:"border-box" }}>
+              {/* BANNER TÍTULO E INFORMACIÓN EJECUTIVA */}
+              <div style={{ background:"var(--surface-1)", padding:"16px 20px", borderRadius:10, border:"1px solid var(--border)", boxShadow:"var(--shadow-sm)", marginBottom:16, display:"flex", justifyContent:"space-between", alignItems:"center", flexWrap:"wrap", gap:12 }}>
+                <div>
+                  <div style={{ fontSize:18, fontWeight:700, color:"var(--text-primary)", display:"flex", alignItems:"center", gap:10 }}>
+                    ⚡ Suite EMS — Gestor de Gestión Energética Bloque D (UPS)
+                  </div>
+                  <div style={{ fontSize:12, color:"var(--text-secondary)", marginTop:3 }}>
+                    Optimización por Peak Shaving · Reducción de Demanda de Red · Cumplimiento IEEE 2030.7 / 1547
+                  </div>
+                </div>
+                <div style={{ display:"flex", gap:8, flexWrap:"wrap" }}>
+                  <span className="badge badge-blue">UPS Campus Centenario</span>
+                  <span className="badge badge-green">Trafo 1000 kVA</span>
+                  <span className="badge badge-slate">P_lim = {pLim} kW</span>
+                </div>
+              </div>
+
               <TabBar tabs={MODULES} active={mod} onSelect={setMod} />
 
               {mod === 0 && (
                 <div>
-                  <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12, marginBottom:20, background:"var(--surface-1)", padding:16, borderRadius:8, border:"1px solid var(--border)" }}>
-                    <TextIn label="Nombre del proyecto" val={nombreProyecto} setVal={setNombreProyecto} full />
-                    <TextIn label="Responsable / Maestrante" val={responsable} setVal={setResponsable} />
-                    <TextIn label="Docente tutor" val={tutor} setVal={setTutor} />
+                  <div style={{ fontSize:14, fontWeight:600, marginBottom:12, color:"var(--text-primary)" }}>Panel de Ajuste de Parámetros de Diseño</div>
+                  <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit, minmax(280px, 1fr))", gap:12, marginBottom:20 }}>
+                    <SliderControl label="Set-point límite de red (P_lim)" val={pLim} setVal={setPLim} min={80} max={200} step={5} unit="kW" />
+                    <SliderControl label="Capacidad BESS (C_bat)" val={cBat} setVal={setCBat} min={50} max={600} step={10} unit="kWh" />
+                    <SliderControl label="Potencia Fotovoltaica (P_PV)" val={pPV} setVal={setPPV} min={0} max={300} step={10} unit="kWp" />
+                    <SliderControl label="Carga nocturna programada BESS" val={cargaNoc} setVal={setCargaNoc} min={10} max={100} step={5} unit="kW" />
+                    <SliderControl label="Tensión nominal en Baja Tensión" val={vNom} setVal={setVNom} min={110} max={480} step={10} unit="V" />
+                    <SliderControl label="Capacidad del Transformador" val={sTrafo} setVal={setSTrafo} min={315} max={2000} step={50} unit="kVA" />
                   </div>
-                  <div style={{ background:"var(--surface-1)", padding:16, borderRadius:8, border:"1px solid var(--border)", marginBottom:20 }}>
-                    <div style={{ fontSize:14, fontWeight:600, marginBottom:14, color:"var(--text-primary)" }}>Parámetros del sistema</div>
-                    <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:"0 24px" }}>
-                      <Input label="Set-point límite red P_lim" val={pLim} setVal={setPLim} min={80} max={200} step={5} unit="kW" />
-                      <Input label="Capacidad BESS C_bat" val={cBat} setVal={setCBat} min={50} max={600} step={10} unit="kWh" />
-                      <Input label="Potencia FV P_PV" val={pPV} setVal={setPPV} min={0} max={300} step={10} unit="kWp" />
-                      <Input label="Carga nocturna BESS" val={cargaNoc} setVal={setCargaNoc} min={10} max={100} step={5} unit="kW" />
-                      <Input label="Tensión nominal BT" val={vNom} setVal={setVNom} min={110} max={480} step={10} unit="V" />
-                      <Input label="Potencia transformador" val={sTrafo} setVal={setSTrafo} min={315} max={2000} step={50} unit="kVA" />
-                    </div>
-                  </div>
-                  <div style={{ display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:12 }}>
-                    <MetricCard label="Reducción de pico" value={reduccion} unit="kW" sub={`${demPico.toFixed(0)} → ${redPico.toFixed(0)} kW`} color="var(--text-success)" />
-                    <MetricCard label="Icc transformador" value={(icc/1000).toFixed(2)} unit="kA" sub="Z%=5.75%" />
-                    <MetricCard label="Cargabilidad trafo" value={cargCon} unit="%" sub={`antes: ${cargSin}%`} />
+                  <div style={{ display:"grid", gridTemplateColumns:"repeat(3, 1fr)", gap:12 }}>
+                    <MetricCard label="Reducción neta de pico" value={reduccion} unit="kW" sub={`Pico original: ${demPico.toFixed(0)} kW → Recortado: ${redPico.toFixed(0)} kW`} color="var(--text-success)" />
+                    <MetricCard label="Corriente Cortocircuito Icc" value={(icc/1000).toFixed(2)} unit="kA" sub="Cálculo simétrico en bus 220V (%Z=5.75)" />
+                    <MetricCard label="Cargabilidad del Transformador" value={cargCon} unit="%" sub={`Sin EMS: ${cargSin}% de carga térmica`} />
                   </div>
                 </div>
               )}
@@ -603,37 +509,37 @@ Firma: ___________________    Revisado: ___________________
               {mod === 1 && (
                 <div>
                   <SLD params={{ vNom, sTrafo, pLim, cBat, pPV }} />
-                  <div style={{ marginTop:12, fontSize:11, color:"var(--text-muted)", textAlign:"center" }}>
-                    Diagrama generado según IEEE 2030.7 / 1547 — actualiza dinámicamente con los parámetros del módulo "Datos del Proyecto"
+                  <div style={{ marginTop:10, fontSize:11, color:"var(--text-muted)", textAlign:"center" }}>
+                    Esquema unifilar vectorial dinámico — responde automáticamente a los ajustes del panel de control
                   </div>
                 </div>
               )}
 
               {mod === 2 && (
                 <div>
-                  <div style={{ display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:12, marginBottom:16 }}>
-                    <MetricCard label="Demanda pico original" value={demPico.toFixed(1)} unit="kW" />
-                    <MetricCard label="P_red con EMS" value={redPico.toFixed(1)} unit="kW" color="var(--text-success)" />
-                    <MetricCard label="Reducción" value={reduccion} unit="kW" sub={((parseFloat(reduccion)/demPico)*100).toFixed(1)+"%"} color="var(--text-accent)" />
+                  <div style={{ display:"grid", gridTemplateColumns:"repeat(3, 1fr)", gap:12, marginBottom:16 }}>
+                    <MetricCard label="Demanda pico bruta original" value={demPico.toFixed(1)} unit="kW" />
+                    <MetricCard label="Demanda pico real desde red" value={redPico.toFixed(1)} unit="kW" color="var(--text-success)" />
+                    <MetricCard label="Ahorro de demanda (Peak Shaving)" value={reduccion} unit="kW" sub={((parseFloat(reduccion)/demPico)*100).toFixed(1)+"% aplanado"} color="var(--text-accent)" />
                   </div>
-                  <div style={{ marginBottom:8, fontSize:13, fontWeight:600, color:"var(--text-secondary)" }}>Perfiles de potencia (24 h)</div>
+                  <div style={{ marginBottom:8, fontSize:13, fontWeight:600, color:"var(--text-secondary)" }}>Perfiles de Potencia Activa (24 Horas)</div>
                   <MiniChart
                     data={[emsData.map(r=>r.pCarga), emsData.map(r=>r.pPV), emsData.map(r=>r.pRed)]}
                     labels={horas}
                     colors={[COLORS.blue, COLORS.yellow, COLORS.red]}
                     height={160} />
                   <div style={{ display:"flex", gap:20, fontSize:12, color:"var(--text-secondary)", margin:"8px 0 16px" }}>
-                    <span style={{ display:"flex", alignItems:"center", gap:6 }}><span style={{ width:12, height:3, background:COLORS.blue, display:"inline-block" }}></span>Carga</span>
-                    <span style={{ display:"flex", alignItems:"center", gap:6 }}><span style={{ width:12, height:3, background:COLORS.yellow, display:"inline-block" }}></span>PV</span>
-                    <span style={{ display:"flex", alignItems:"center", gap:6 }}><span style={{ width:12, height:3, background:COLORS.red, display:"inline-block" }}></span>Red con EMS</span>
+                    <span style={{ display:"flex", alignItems:"center", gap:6 }}><span style={{ width:12, height:3, background:COLORS.blue, display:"inline-block", borderRadius:2 }}></span>Demanda Bruta Bloque D</span>
+                    <span style={{ display:"flex", alignItems:"center", gap:6 }}><span style={{ width:12, height:3, background:COLORS.yellow, display:"inline-block", borderRadius:2 }}></span>Generación PV</span>
+                    <span style={{ display:"flex", alignItems:"center", gap:6 }}><span style={{ width:12, height:3, background:COLORS.red, display:"inline-block", borderRadius:2 }}></span>Potencia Consumida de Red</span>
                   </div>
-                  <div style={{ marginBottom:8, fontSize:13, fontWeight:600, color:"var(--text-secondary)" }}>SOC banco BESS (%)</div>
+                  <div style={{ marginBottom:8, fontSize:13, fontWeight:600, color:"var(--text-secondary)" }}>Estado de Carga BESS (SOC %)</div>
                   <MiniChart data={[emsData.map(r=>r.soc)]} labels={horas} colors={[COLORS.teal]} height={110} />
                   <div style={{ marginTop:16, overflowX:"auto" }}>
                     <table style={{ width:"100%", fontSize:12, borderCollapse:"collapse", background:"var(--surface-1)", borderRadius:8, border:"1px solid var(--border)" }}>
                       <thead>
                         <tr style={{ borderBottom:"1px solid var(--border)", background:"var(--surface-2)" }}>
-                          {["Hora","P_Carga","P_PV","P_Bat","P_Red","E_BESS","SOC"].map(h=>(
+                          {["Hora","P_Carga (kW)","P_PV (kW)","P_Batería (kW)","P_Red Real (kW)","Energía BESS (kWh)","SOC (%)"].map(h=>(
                             <th key={h} style={{ padding:"8px 10px", textAlign:"center", color:"var(--text-secondary)", fontWeight:600 }}>{h}</th>
                           ))}
                         </tr>
@@ -643,11 +549,11 @@ Firma: ___________________    Revisado: ___________________
                           <tr key={i} style={{ borderBottom:"1px solid var(--border)", background: r.pRed > pLim ? "var(--bg-warning)" : "transparent" }}>
                             <td style={{ padding:"6px 10px", textAlign:"center", fontWeight:600 }}>{r.hora}</td>
                             <td style={{ padding:"6px 10px", textAlign:"right" }}>{r.pCarga}</td>
-                            <td style={{ padding:"6px 10px", textAlign:"right", color:COLORS.yellow }}>{r.pPV}</td>
-                            <td style={{ padding:"6px 10px", textAlign:"right", color: r.pBat>0?COLORS.orange:COLORS.teal, fontWeight:500 }}>{r.pBat}</td>
-                            <td style={{ padding:"6px 10px", textAlign:"right", color: r.pRed>pLim?COLORS.red:COLORS.green, fontWeight:600 }}>{r.pRed}</td>
+                            <td style={{ padding:"6px 10px", textAlign:"right", color:COLORS.yellow, fontWeight:500 }}>{r.pPV}</td>
+                            <td style={{ padding:"6px 10px", textAlign:"right", color: r.pBat>0?COLORS.orange:COLORS.teal, fontWeight:600 }}>{r.pBat}</td>
+                            <td style={{ padding:"6px 10px", textAlign:"right", color: r.pRed>pLim?COLORS.red:COLORS.green, fontWeight:700 }}>{r.pRed}</td>
                             <td style={{ padding:"6px 10px", textAlign:"right" }}>{r.energia}</td>
-                            <td style={{ padding:"6px 10px", textAlign:"right", fontWeight:500 }}>{r.soc}%</td>
+                            <td style={{ padding:"6px 10px", textAlign:"right", fontWeight:600 }}>{r.soc}%</td>
                           </tr>
                         ))}
                       </tbody>
@@ -658,114 +564,62 @@ Firma: ___________________    Revisado: ___________________
 
               {mod === 3 && (
                 <div>
-                  <div style={{ fontSize:14, fontWeight:600, marginBottom:12 }}>Resumen calidad de energía — METREL MI2792 (agosto 2022)</div>
-                  <div style={{ display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:10, marginBottom:16 }}>
-                    <MetricCard label="THD U1" value="1.6" unit="%" sub="< 8% ✓ EN50160" color="var(--text-success)" />
-                    <MetricCard label="THD U2" value="1.9" unit="%" sub="< 8% ✓" color="var(--text-success)" />
-                    <MetricCard label="THD U3" value="2.2" unit="%" sub="< 8% ✓" color="var(--text-success)" />
-                    <MetricCard label="Flicker PLT1" value="1.12" unit="" sub="< 1 ✗ NO CUMPLE" color="var(--text-danger)" />
-                    <MetricCard label="Flicker PLT2" value="1.06" unit="" sub="< 1 ✗" color="var(--text-danger)" />
-                    <MetricCard label="Flicker PLT3" value="1.08" unit="" sub="< 1 ✗" color="var(--text-danger)" />
-                    <MetricCard label="Desequilibrio u-" value="0.45–0.82" unit="%" sub="< 2% ✓" color="var(--text-success)" />
-                    <MetricCard label="Frecuencia" value="59.98–60.02" unit="Hz" sub="✓ EN50160" color="var(--text-success)" />
-                    <MetricCard label="FP mínimo" value="0.63" unit="" sub="nocturno — mejorar" color="var(--text-warning)" />
+                  <div style={{ fontSize:14, fontWeight:600, marginBottom:12 }}>Resumen de Calidad de Energía — Medidor METREL MI2792</div>
+                  <div style={{ display:"grid", gridTemplateColumns:"repeat(3, 1fr)", gap:10, marginBottom:16 }}>
+                    <MetricCard label="THD U1 (Voltaje)" value="1.6" unit="%" sub="< 8% Norma EN 50160" color="var(--text-success)" />
+                    <MetricCard label="THD U2 (Voltaje)" value="1.9" unit="%" sub="< 8% Cumple" color="var(--text-success)" />
+                    <MetricCard label="THD U3 (Voltaje)" value="2.2" unit="%" sub="< 8% Cumple" color="var(--text-success)" />
+                    <MetricCard label="Flicker PLT1" value="1.12" unit="" sub="> 1.0 Alerta de parpadeo" color="var(--text-danger)" />
+                    <MetricCard label="Flicker PLT2" value="1.06" unit="" sub="> 1.0 Alerta" color="var(--text-danger)" />
+                    <MetricCard label="Flicker PLT3" value="1.08" unit="" sub="> 1.0 Alerta" color="var(--text-danger)" />
+                    <MetricCard label="Desequilibrio de Fase" value="0.45–0.82" unit="%" sub="< 2% Cumple" color="var(--text-success)" />
+                    <MetricCard label="Frecuencia de Red" value="59.98–60.02" unit="Hz" sub="Estable" color="var(--text-success)" />
+                    <MetricCard label="Factor de Potencia Mínimo" value="0.63" unit="" sub="Registrado en la noche" color="var(--text-warning)" />
                   </div>
                   <div style={{ background:"var(--bg-danger)", border:"1px solid var(--border-danger)", borderRadius:8, padding:"12px 16px", marginBottom:16 }}>
-                    <div style={{ fontSize:13, fontWeight:600, color:"var(--text-danger)", marginBottom:4 }}>No conformidad detectada — Flicker</div>
+                    <div style={{ fontSize:13, fontWeight:600, color:"var(--text-danger)", marginBottom:4 }}>Aviso Técnico: Inconformidad en Flicker (Plt > 1.0)</div>
                     <div style={{ fontSize:12, color:"var(--text-secondary)", lineHeight:1.5 }}>
-                      El Plt supera 1.0 en las tres fases. Se requiere instalación de Control VAR Electrónico (EVC) o estabilizador de voltaje.
-                      Los picos ocurren en horario laboral: 12:00, 14:00, 15:00 y 19:00 h.
+                      Las mediciones de campo muestran variaciones rápidas de carga que elevan el índice Plt por encima de los límites de la norma EN 50160. Se recomienda que el inversor del BESS opere con control activo de potencia reactiva (EVC) para estabilizar el voltaje del nodo.
                     </div>
-                  </div>
-                  <div style={{ fontSize:13, fontWeight:600, marginBottom:8 }}>Corrientes máximas registradas</div>
-                  <MiniChart
-                    data={[REAL_DATA.hourly_load.map(v=>v/vNom*1000/1.732)]}
-                    labels={horas} colors={[COLORS.blue]} height={110} />
-                  <div style={{ fontSize:12, color:"var(--text-muted)", marginTop:6 }}>
-                    I1/I2 pico ≈ {(REAL_DATA.hourly_load[12]/vNom*1000/1.732).toFixed(0)} A · I3 pico ≈ 263 A · IN ≈ 204 A (medidos con pinzas 1×3 kA)
                   </div>
                 </div>
               )}
 
               {mod === 4 && (
                 <div>
-                  <div style={{ fontSize:14, fontWeight:600, marginBottom:12 }}>Dimensionamiento sistema FV + BESS — Guayaquil</div>
-                  <div style={{ display:"grid", gridTemplateColumns:"repeat(2,1fr)", gap:10, marginBottom:16 }}>
-                    <MetricCard label="Módulos necesarios" value={numMod} unit="uds." sub={`PERC 550 Wp @ 35 V`} />
-                    <MetricCard label="Área de paneles" value={areaMod} unit="m²" sub="2.2 m²/módulo" />
-                    <MetricCard label="Energía generada/día" value={energiaDia} unit="kWh" sub="HPS Guayaquil: 4.3 h" />
-                    <MetricCard label="Potencia inversor" value={invKva} unit="kVA" sub="FP=0.95 inductivo" />
-                    <MetricCard label="Energía útil BESS" value={eUtil} unit="kWh" sub="DoD 80%, LiFePO4" />
-                    <MetricCard label="SOC mínimo" value={socMin} unit="kWh" sub="20% IEEE 2030.2" />
-                  </div>
-                  <div style={{ fontSize:13, fontWeight:600, color:"var(--text-secondary)", marginBottom:8 }}>Perfil irradiación solar GYE (W/m² × hora)</div>
-                  <MiniChart data={[REAL_DATA.irradiation_gye]} labels={horas} colors={[COLORS.yellow]} height={110} />
-                  <div style={{ background:"var(--bg-success)", border:"1px solid var(--border-success)", borderRadius:8, padding:"12px 16px", marginTop:16 }}>
-                    <div style={{ fontSize:13, fontWeight:600, color:"var(--text-success)", marginBottom:4 }}>Estrategia de operación FV+BESS</div>
-                    <div style={{ fontSize:12, color:"var(--text-secondary)", lineHeight:1.6 }}>
-                      · Horas solares (06:00–18:00): PV inyecta a la carga y/o carga el BESS<br/>
-                      · Horas pico (11:00–13:00 / 18:00–20:00): BESS descarga para recortar demanda<br/>
-                      · Madrugada (01:00–05:00): BESS carga desde red a tarifa valle ({cargaNoc} kW)
-                    </div>
+                  <div style={{ fontSize:14, fontWeight:600, marginBottom:12 }}>Dimensionamiento de Componentes FV + BESS</div>
+                  <div style={{ display:"grid", gridTemplateColumns:"repeat(2, 1fr)", gap:10, marginBottom:16 }}>
+                    <MetricCard label="Módulos Fotovoltaicos Requeridos" value={numMod} unit="uds." sub="Módulos PERC Monocristalinos 550 Wp" />
+                    <MetricCard label="Área Estimada de Cubierta" value={areaMod} unit="m²" sub="Calculado a 2.2 m² por panel" />
+                    <MetricCard label="Energía Generada Diaria Estimada" value={energiaDia} unit="kWh/día" sub="HPS promedio Guayaquil: 4.3 h" />
+                    <MetricCard label="Capacidad del Inversor Híbrido" value={invKva} unit="kVA" sub="S_nom calculada a FP = 0.95" />
+                    <MetricCard label="Capacidad Útil BESS (DoD 80%)" value={eUtil} unit="kWh" sub="Energía efectiva utilizable" />
+                    <MetricCard label="Reserva de Seguridad BESS (20%)" value={socMin} unit="kWh" sub="Protección química del banco" />
                   </div>
                 </div>
               )}
 
               {mod === 5 && (
                 <div>
-                  <div style={{ fontSize:14, fontWeight:600, marginBottom:12 }}>Comparador: datos reales vs simulación EMS</div>
-                  <div style={{ display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:10, marginBottom:16 }}>
-                    <MetricCard label="Pico real (METREL)" value="179.1" unit="kW" />
-                    <MetricCard label="Pico simulado c/EMS" value={redPico.toFixed(1)} unit="kW" color="var(--text-success)" />
-                    <MetricCard label="Error relativo" value={Math.abs(((parseFloat(redPico)-pLim)/pLim)*100).toFixed(1)} unit="%" sub="vs set-point" />
+                  <div style={{ fontSize:14, fontWeight:600, marginBottom:12 }}>Comparativa: Mediciones de Campo vs Simulación EMS</div>
+                  <div style={{ display:"grid", gridTemplateColumns:"repeat(3, 1fr)", gap:10, marginBottom:16 }}>
+                    <MetricCard label="Demanda Pico Medida" value="179.1" unit="kW" sub="Analizador METREL MI2792" />
+                    <MetricCard label="Demanda Pico Simulada EMS" value={redPico.toFixed(1)} unit="kW" color="var(--text-success)" sub="Con gestión BESS/PV" />
+                    <MetricCard label="Efectividad de Recorte" value={Math.abs(((parseFloat(reduccion)/demPico)*100)).toFixed(1)} unit="%" color="var(--text-accent)" sub="Reducción de demanda de pico" />
                   </div>
-                  <div style={{ fontSize:13, fontWeight:600, color:"var(--text-secondary)", marginBottom:8 }}>Curva de demanda: real vs EMS simulado</div>
+                  <div style={{ fontSize:13, fontWeight:600, color:"var(--text-secondary)", marginBottom:8 }}>Comparativa Horaria de la Curva de Demanda</div>
                   <MiniChart
                     data={[REAL_DATA.hourly_load, emsData.map(r=>r.pRed)]}
                     labels={horas}
                     colors={[COLORS.blue, COLORS.green]}
-                    height={150} />
-                  <div style={{ display:"flex", gap:20, fontSize:12, color:"var(--text-secondary)", margin:"8px 0 16px" }}>
-                    <span><span style={{ display:"inline-block", width:12, height:3, background:COLORS.blue, verticalAlign:"middle", marginRight:6 }}></span>Demanda real</span>
-                    <span><span style={{ display:"inline-block", width:12, height:3, background:COLORS.green, verticalAlign:"middle", marginRight:6 }}></span>Con EMS (simulado)</span>
-                  </div>
-                  <div style={{ overflowX:"auto" }}>
-                    <table style={{ width:"100%", fontSize:12, borderCollapse:"collapse", background:"var(--surface-1)", borderRadius:8, border:"1px solid var(--border)" }}>
-                      <thead>
-                        <tr style={{ borderBottom:"1px solid var(--border)", background:"var(--surface-2)" }}>
-                          {["Parámetro","Medido (real)","Simulado (EMS)","Δ","Estado"].map(h=>(
-                            <th key={h} style={{ padding:"8px 12px", textAlign:"left", color:"var(--text-secondary)", fontWeight:600 }}>{h}</th>
-                          ))}
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {[
-                          ["Demanda pico","179.1 kW",`${redPico.toFixed(1)} kW`,`-${reduccion} kW`,"✓"],
-                          ["FP mínimo","0.63","0.95 (c/EVC)","+0.32","⚠"],
-                          ["THD U (máx)","2.2%","< 2.0%","−0.2%","✓"],
-                          ["Flicker Plt","1.12","< 0.8 (c/EVC)","−0.32","✓"],
-                          ["Icc disponible",`${(icc/1000).toFixed(2)} kA`,`${(icc/1000).toFixed(2)} kA`,"=","✓"],
-                          ["Cargabilidad trafo",`${cargSin}%`,`${cargCon}%`,`-${(parseFloat(cargSin)-parseFloat(cargCon)).toFixed(1)}%`,"✓"],
-                        ].map(([p,r,s,d,e],i)=>(
-                          <tr key={i} style={{ borderBottom:"1px solid var(--border)" }}>
-                            <td style={{ padding:"8px 12px", fontWeight:600 }}>{p}</td>
-                            <td style={{ padding:"8px 12px" }}>{r}</td>
-                            <td style={{ padding:"8px 12px", color:"var(--text-success)", fontWeight:500 }}>{s}</td>
-                            <td style={{ padding:"8px 12px", color:"var(--text-accent)", fontWeight:500 }}>{d}</td>
-                            <td style={{ padding:"8px 12px", fontWeight:600 }}>{e}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
+                    height={160} />
                 </div>
               )}
 
               {mod === 6 && (
                 <div>
-                  <div style={{ fontSize:14, fontWeight:600, marginBottom:12 }}>Memoria técnica — vista previa</div>
-                  <pre style={{ fontSize:11, lineHeight:1.6, background:"var(--surface-1)", border:"1px solid var(--border)",
-                    borderRadius:8, padding:"16px 20px", overflowX:"auto", color:"var(--text-primary)", whiteSpace:"pre-wrap", wordBreak:"break-word" }}>
+                  <div style={{ fontSize:14, fontWeight:600, marginBottom:12 }}>Resumen Ejecutivo de la Memoria Técnica</div>
+                  <pre style={{ fontSize:11, lineHeight:1.6, background:"var(--surface-1)", border:"1px solid var(--border)", borderRadius:8, padding:"16px 20px", overflowX:"auto", color:"var(--text-primary)", whiteSpace:"pre-wrap", wordBreak:"break-word" }}>
                     {renderMemoria()}
                   </pre>
                 </div>
@@ -778,19 +632,14 @@ Firma: ___________________    Revisado: ___________________
                     active={showExport ? 1 : 0}
                     onSelect={v => setShowExport(v===1)} />
                   {!showExport ? (
-                    <pre style={{ fontSize:11, lineHeight:1.6, background:"var(--surface-1)", border:"1px solid var(--border)",
-                      borderRadius:8, padding:"16px 20px", overflowX:"auto", color:"var(--text-primary)", whiteSpace:"pre-wrap" }}>
+                    <pre style={{ fontSize:11, lineHeight:1.6, background:"var(--surface-1)", border:"1px solid var(--border)", borderRadius:8, padding:"16px 20px", overflowX:"auto", color:"var(--text-primary)", whiteSpace:"pre-wrap" }}>
                       {renderMatlabCode()}
                     </pre>
                   ) : (
-                    <pre style={{ fontSize:11, lineHeight:1.6, background:"var(--surface-1)", border:"1px solid var(--border)",
-                      borderRadius:8, padding:"16px 20px", overflowX:"auto", color:"var(--text-primary)", whiteSpace:"pre-wrap", wordBreak:"break-word" }}>
+                    <pre style={{ fontSize:11, lineHeight:1.6, background:"var(--surface-1)", border:"1px solid var(--border)", borderRadius:8, padding:"16px 20px", overflowX:"auto", color:"var(--text-primary)", whiteSpace:"pre-wrap" }}>
                       {renderETAPInstructions()}
                     </pre>
                   )}
-                  <div style={{ marginTop:12, fontSize:12, color:"var(--text-muted)" }}>
-                    Copia el código y pégalo directamente en MATLAB R2023b o posterior. Los datos de carga se actualizan automáticamente con los parámetros que configures en el módulo "Datos del Proyecto".
-                  </div>
                 </div>
               )}
             </div>
@@ -805,4 +654,4 @@ Firma: ___________________    Revisado: ___________________
 """
 
 # Renderizado responsivo a pantalla completa
-components.html(react_app_html, height=1150, scrolling=True)
+components.html(react_app_html, height=1100, scrolling=True)
