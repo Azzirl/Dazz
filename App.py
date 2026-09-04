@@ -119,10 +119,16 @@ icc_simetrica = i_nom / (z_percent / 100.0)
 cargabilidad_sin = (demanda_max / s_trafo) * 100.0
 cargabilidad_con = (demanda_recortada / s_trafo) * 100.0
 
+# Helper para color de celda en docx
+def set_cell_background(cell, fill_hex):
+    tcPr = cell._tc.get_or_add_tcPr()
+    shd = parse_xml(f'<w:shd {nsdecls("w")} w:fill="{fill_hex}"/>')
+    tcPr.append(shd)
+
 # ==========================================
-# GENERADOR DE PLANO CAD UNIFILAR (.DXF)
+# GENERADOR DE PLANO CAD UNIFILAR EXACTO (.DXF)
 # ==========================================
-def generate_unifilar_dxf(p_lim=130.0, c_bat=250.0, p_pv=150.0, s_trafo=1000.0):
+def generate_unifilar_dxf_exact(p_lim=130.0, c_bat=250.0, p_pv=150.0, s_trafo=1000.0):
     lines = []
     def add_line(layer, x1, y1, x2, y2):
         lines.extend(["0", "LINE", "8", layer, "10", f"{x1:.2f}", "20", f"{y1:.2f}", "30", "0.0", "11", f"{x2:.2f}", "21", f"{y2:.2f}", "31", "0.0"])
@@ -144,8 +150,14 @@ def generate_unifilar_dxf(p_lim=130.0, c_bat=250.0, p_pv=150.0, s_trafo=1000.0):
     lines.extend(["0", "SECTION", "2", "BLOCKS", "0", "ENDSEC"])
     lines.extend(["0", "SECTION", "2", "ENTITIES"])
 
+    inv_kva = p_pv / 0.95 if p_pv > 0 else p_lim / 0.95
+    e_ut = c_bat * 0.80
+
+    add_text("TEXTOS", -80, 220, "PROYECTO: SISTEMA EMS PEAK SHAVING - UPS BLOQUE D", 5.0)
+    add_text("TEXTOS", -80, 212, "DIAGRAMA UNIFILAR JERARQUICO DE INTERCONEXION (IEEE 2030.7 / IEEE 1547)", 3.5)
+
     add_line("RED_MT", 0, 200, 0, 160)
-    add_text("TEXTOS", -40, 205, "RED PRINCIPAL CNEL - MEDIA TENSION 69 kV / 13.8 kV", 4.0)
+    add_text("TEXTOS", -45, 195, "ACOMETIDA RED PRINCIPAL CNEL - 69 kV / 13.8 kV (3F-3H, 60 Hz)", 3.5)
     
     add_circle("EQUIPOS", 0, 160, 2.5)
     add_text("TEXTOS", 8, 158, "CCF 100A + APARTARRAYOS 12 kV", 3.0)
@@ -156,48 +168,54 @@ def generate_unifilar_dxf(p_lim=130.0, c_bat=250.0, p_pv=150.0, s_trafo=1000.0):
     add_text("TEXTOS", -4, 125, "DELTA", 3.0)
     add_text("TEXTOS", -2, 109, "Y", 3.0)
     
-    add_box("CUADROS_INFO", 25, 100, 95, 140)
-    add_text("TEXTOS", 28, 132, f"TRANSFORMADOR {s_trafo:.0f} kVA", 3.5)
-    add_text("TEXTOS", 28, 124, "Primario: 69 kV / 13.8 kV (Delta)", 2.5)
-    add_text("TEXTOS", 28, 116, "Secundario: 220/127 V (3F-4H)", 2.5)
-    add_text("TEXTOS", 28, 108, "Z% = 5.75%  |  OA  |  60 Hz", 2.5)
+    add_box("CUADROS_INFO", 25, 95, 105, 145)
+    add_text("TEXTOS", 28, 137, f"TRANSFORMADOR PEDESTAL {s_trafo:.0f} kVA", 3.5)
+    add_text("TEXTOS", 28, 129, "Primario: 69 kV / 13.8 kV (Delta)", 2.5)
+    add_text("TEXTOS", 28, 121, "Secundario: 220 / 127 V (3F-4H, Dyn11)", 2.5)
+    add_text("TEXTOS", 28, 113, f"Z% = 5.75%  |  In_sec = {i_nom:.1f} A", 2.5)
+    add_text("TEXTOS", 28, 105, f"Icc_sim = {icc_simetrica/1000.0:.2f} kA  |  OA / 60 Hz", 2.5)
 
     add_line("RED_BT", 0, 100, 0, 80)
-    add_box("EQUIPOS", -8, 65, 8, 80)
-    add_text("TEXTOS", -5, 70, "ITM", 3.5)
-    add_text("TEXTOS", 12, 70, "PRINCIPAL: 3P-2000 A (50 kA AIC @ 220V)", 3.0)
+    add_box("EQUIPOS", -10, 65, 10, 80)
+    add_text("TEXTOS", -6, 71, "ITM", 3.5)
+    add_text("TEXTOS", 14, 71, "DISYUNTOR PRINCIPAL TGBT: 3P-2000 A (50 kA AIC @ 220V)", 3.0)
 
     add_line("RED_BT", 0, 65, 0, 50)
-    add_line("BUS_PRINCIPAL", -100, 50, 100, 50)
-    add_line("BUS_PRINCIPAL", -100, 49.5, 100, 49.5)
-    add_text("TEXTOS", -80, 53, "TABLERO GENERAL DE DISTRIBUCION (TGBT) - 220/127 V (3F-4H)", 3.5)
+    add_line("BUS_PRINCIPAL", -110, 50, 110, 50)
+    add_line("BUS_PRINCIPAL", -110, 49.3, 110, 49.3)
+    add_text("TEXTOS", -85, 54, "TABLERO GENERAL DE DISTRIBUCION (TGBT) - BUS 220/127 V (3F-4H, 60 Hz)", 3.5)
 
     add_line("RED_BT", -70, 50, -70, 30)
-    add_box("EQUIPOS", -75, 20, -65, 30)
+    add_box("EQUIPOS", -76, 20, -64, 30)
     add_text("TEXTOS", -73, 23, "3P", 3.0)
     add_line("RED_BT", -70, 20, -70, 5)
-    add_text("TEXTOS", -85, -2, "CARGAS BLOQUE D (179.1 kW Peak)", 2.5)
+    add_box("CUADROS_INFO", -95, -15, -45, 5)
+    add_text("TEXTOS", -92, -2, "CARGAS BLOQUE D (UPS)", 3.0)
+    add_text("TEXTOS", -92, -8, f"Demanda Pico: {demanda_max:.1f} kW", 2.5)
+    add_text("TEXTOS", -92, -13, "Carga Base: 36.0 kW", 2.5)
 
-    add_line("RED_BT", 30, 50, 30, 30)
-    add_box("EQUIPOS", 25, 20, 35, 30)
-    add_text("TEXTOS", 27, 23, "3P", 3.0)
-    add_line("RED_BT", 30, 20, 30, 5)
+    add_line("RED_BT", 40, 50, 40, 30)
+    add_box("EQUIPOS", 34, 20, 46, 30)
+    add_text("TEXTOS", 37, 23, "3P", 3.0)
+    add_line("RED_BT", 40, 20, 40, 5)
     
-    add_box("EQUIPOS", 10, -15, 50, 5)
-    add_text("TEXTOS", 14, -2, "INVERSOR HIBRIDO", 3.0)
-    add_text("TEXTOS", 14, -8, f"S_nom: {p_pv/0.95:.1f} kVA", 2.5)
-    add_text("TEXTOS", 14, -13, f"Set-point: {p_lim:.0f} kW", 2.5)
+    add_box("EQUIPOS", 15, -20, 65, 5)
+    add_text("TEXTOS", 18, -2, "INVERSOR HIBRIDO MULTIMODO", 3.0)
+    add_text("TEXTOS", 18, -8, f"S_nom: {inv_kva:.1f} kVA (FP = 0.95)", 2.5)
+    add_text("TEXTOS", 18, -14, f"Control EMS Set-point: {p_lim:.0f} kW", 2.5)
 
-    add_line("RED_DC", 20, -15, 20, -30)
-    add_line("RED_DC", 40, -15, 40, -30)
+    add_line("RED_DC", 28, -20, 28, -35)
+    add_line("RED_DC", 52, -20, 52, -35)
 
-    add_box("EQUIPOS", 5, -45, 30, -30)
-    add_text("TEXTOS", 8, -37, "ARREGLO PV", 2.5)
-    add_text("TEXTOS", 8, -42, f"Capacidad: {p_pv:.0f} kWp", 2.5)
+    add_box("EQUIPOS", 10, -55, 36, -35)
+    add_text("TEXTOS", 12, -42, "ARREGLO PV", 2.8)
+    add_text("TEXTOS", 12, -48, f"P_peak: {p_pv:.0f} kWp", 2.3)
+    add_text("TEXTOS", 12, -53, "Módulos PERC 550W", 2.0)
 
-    add_box("EQUIPOS", 35, -45, 60, -30)
-    add_text("TEXTOS", 38, -37, "BANCO BESS", 2.5)
-    add_text("TEXTOS", 38, -42, f"Capacidad: {c_bat:.0f} kWh", 2.5)
+    add_box("EQUIPOS", 44, -55, 80, -35)
+    add_text("TEXTOS", 46, -42, "BANCO BESS LiFePO4", 2.8)
+    add_text("TEXTOS", 46, -48, f"C_nom: {c_bat:.0f} kWh (512V)", 2.3)
+    add_text("TEXTOS", 46, -53, f"E_util: {e_ut:.0f} kWh (DoD 80%)", 2.0)
 
     lines.extend(["0", "ENDSEC", "0", "EOF"])
     return "\n".join(lines)
@@ -205,65 +223,86 @@ def generate_unifilar_dxf(p_lim=130.0, c_bat=250.0, p_pv=150.0, s_trafo=1000.0):
 # ==========================================
 # GENERADOR VECTORIAL EN PANTALLA (PLOTLY)
 # ==========================================
-def build_plotly_sld(p_lim=130.0, c_bat=250.0, p_pv=150.0, s_trafo=1000.0):
+def build_plotly_sld_exact(p_lim=130.0, c_bat=250.0, p_pv=150.0, s_trafo=1000.0):
     fig = go.Figure()
     fig.update_xaxes(visible=False)
     fig.update_yaxes(visible=False)
     
+    # 1. MT Line
     fig.add_trace(go.Scatter(x=[0, 0], y=[200, 160], mode='lines', line=dict(color='black', width=3), showlegend=False))
-    fig.add_annotation(x=0, y=205, text="RED CNEL • MEDIA TENSIÓN 69 kV / 13.8 kV", showarrow=False, font=dict(size=13, color='blue', family='Arial Black'))
+    fig.add_annotation(x=0, y=205, text="ACOMETIDA RED PRINCIPAL CNEL • 69 kV / 13.8 kV (3F-3H, 60 Hz)", showarrow=False, font=dict(size=12, color='blue', family='Arial Black'))
     
+    # 2. CCF / Protection
     fig.add_trace(go.Scatter(x=[0], y=[160], mode='markers', marker=dict(color='red', size=12), showlegend=False))
-    fig.add_annotation(x=20, y=160, text="CCF 100A + APARTARRAYOS 12 kV", showarrow=False, font=dict(size=11))
+    fig.add_annotation(x=22, y=160, text="CCF 100A + APARTARRAYOS 12 kV", showarrow=False, font=dict(size=11))
     
+    # 3. Transformer Circles
     fig.add_shape(type="circle", x0=-12, y0=116, x1=12, y1=140, line_color="dodgerblue", line_width=3)
     fig.add_shape(type="circle", x0=-12, y0=100, x1=12, y1=124, line_color="dodgerblue", line_width=3)
     fig.add_annotation(x=0, y=128, text="Δ", showarrow=False, font=dict(size=14, color='black'))
     fig.add_annotation(x=0, y=112, text="Y", showarrow=False, font=dict(size=14, color='black'))
     
-    fig.add_shape(type="rect", x0=25, y0=100, x1=95, y1=140, fillcolor="#eBF5FB", line_color="#3498DB", line_width=1.5)
-    fig.add_annotation(x=60, y=132, text=f"TRANSFORMADOR {s_trafo:.0f} kVA", showarrow=False, font=dict(size=12, color='#1B4F72', family='Arial Black'))
-    fig.add_annotation(x=60, y=122, text="Primario: 69 kV / 13.8 kV (Delta)", showarrow=False, font=dict(size=10))
-    fig.add_annotation(x=60, y=114, text="Secundario: 220/127 V (3F-4H)", showarrow=False, font=dict(size=10))
-    fig.add_annotation(x=60, y=106, text="Z% = 5.75%  |  OA  |  60 Hz", showarrow=False, font=dict(size=10))
+    # Trafo Box
+    fig.add_shape(type="rect", x0=25, y0=95, x1=100, y1=145, fillcolor="#eBF5FB", line_color="#3498DB", line_width=1.5)
+    fig.add_annotation(x=62, y=137, text=f"TRANSFORMADOR PEDESTAL {s_trafo:.0f} kVA", showarrow=False, font=dict(size=11, color='#1B4F72', family='Arial Black'))
+    fig.add_annotation(x=62, y=127, text="Primario: 69 kV / 13.8 kV (Delta)", showarrow=False, font=dict(size=9.5))
+    fig.add_annotation(x=62, y=118, text="Secundario: 220/127 V (3F-4H, Dyn11)", showarrow=False, font=dict(size=9.5))
+    fig.add_annotation(x=62, y=109, text=f"Z% = 5.75%  |  In_sec = {i_nom:.1f} A", showarrow=False, font=dict(size=9.5))
+    fig.add_annotation(x=62, y=101, text=f"Icc_sim = {icc_simetrica/1000.0:.2f} kA  |  OA / 60 Hz", showarrow=False, font=dict(size=9.5, color='darkred'))
     
+    # ITM
     fig.add_trace(go.Scatter(x=[0, 0], y=[100, 80], mode='lines', line=dict(color='black', width=3), showlegend=False))
     fig.add_shape(type="rect", x0=-10, y0=65, x1=10, y1=80, fillcolor="white", line_color="black", line_width=2)
     fig.add_annotation(x=0, y=72.5, text="ITM", showarrow=False, font=dict(size=12, family='Arial Black'))
-    fig.add_annotation(x=55, y=72.5, text="PRINCIPAL: 3P-2000 A (50 kA AIC @ 220V)", showarrow=False, font=dict(size=11, color='green', family='Arial Black'))
+    fig.add_annotation(x=68, y=72.5, text="DISYUNTOR PRINCIPAL TGBT: 3P-2000 A (50 kA AIC @ 220V)", showarrow=False, font=dict(size=11, color='green', family='Arial Black'))
     
+    # Bus line
     fig.add_trace(go.Scatter(x=[0, 0], y=[65, 50], mode='lines', line=dict(color='black', width=3), showlegend=False))
-    fig.add_trace(go.Scatter(x=[-100, 100], y=[50, 50], mode='lines', line=dict(color='#0073e6', width=6), showlegend=False))
-    fig.add_annotation(x=0, y=56, text="TABLERO GENERAL DE DISTRIBUCIÓN (TGBT) • 220/127 V (3F-4H)", showarrow=False, font=dict(size=12, family='Arial Black'))
+    fig.add_trace(go.Scatter(x=[-110, 110], y=[50, 50], mode='lines', line=dict(color='#0073e6', width=6), showlegend=False))
+    fig.add_annotation(x=0, y=56, text="TABLERO GENERAL DE DISTRIBUCIÓN (TGBT) • BUS 220/127 V (3F-4H, 60 Hz)", showarrow=False, font=dict(size=11, family='Arial Black'))
     
+    # Branch 1: Cargas
     fig.add_trace(go.Scatter(x=[-60, -60], y=[50, 30], mode='lines', line=dict(color='black', width=2), showlegend=False))
     fig.add_shape(type="rect", x0=-66, y0=20, x1=-54, y1=30, fillcolor="white", line_color="black", line_width=1.5)
     fig.add_annotation(x=-60, y=25, text="3P", showarrow=False, font=dict(size=10))
     fig.add_trace(go.Scatter(x=[-60, -60], y=[20, 5], mode='lines', line=dict(color='red', width=2), showlegend=False))
-    fig.add_annotation(x=-60, y=-2, text="CARGAS BLOQUE D<br>(179.1 kW Peak)", showarrow=False, font=dict(size=10, color='red'))
     
+    fig.add_shape(type="rect", x0=-85, y0=-15, x1=-35, y1=5, fillcolor="#FDEDEC", line_color="#E74C3C", line_width=1.5)
+    fig.add_annotation(x=-60, y=-1, text="CARGAS BLOQUE D (UPS)", showarrow=False, font=dict(size=10, color='darkred', family='Arial Black'))
+    fig.add_annotation(x=-60, y=-7, text=f"Demanda Pico: {demanda_max:.1f} kW", showarrow=False, font=dict(size=9.5))
+    fig.add_annotation(x=-60, y=-12, text="Carga Base: 36.0 kW", showarrow=False, font=dict(size=9.5))
+
+    # Branch 2: Inversor EMS + BESS + PV
     fig.add_trace(go.Scatter(x=[60, 60], y=[50, 30], mode='lines', line=dict(color='black', width=2), showlegend=False))
     fig.add_shape(type="rect", x0=54, y0=20, x1=66, y1=30, fillcolor="white", line_color="black", line_width=1.5)
     fig.add_annotation(x=60, y=25, text="3P", showarrow=False, font=dict(size=10))
     fig.add_trace(go.Scatter(x=[60, 60], y=[20, 5], mode='lines', line=dict(color='purple', width=2), showlegend=False))
     
-    fig.add_shape(type="rect", x0=35, y0=-15, x1=85, y1=5, fillcolor="#F4ECF7", line_color="#884EA0", line_width=2)
-    fig.add_annotation(x=60, y=-1, text="INVERSOR HÍBRIDO", showarrow=False, font=dict(size=11, color='#512E5F', family='Arial Black'))
-    fig.add_annotation(x=60, y=-7, text=f"S_nom: {p_pv/0.95:.1f} kVA", showarrow=False, font=dict(size=10))
-    fig.add_annotation(x=60, y=-12, text=f"Set-point: {p_lim:.0f} kW", showarrow=False, font=dict(size=10))
+    # Inversor Box
+    inv_kva_val = potencia_pv / 0.95 if potencia_pv > 0 else p_lim / 0.95
+    fig.add_shape(type="rect", x0=32, y0=-20, x1=88, y1=5, fillcolor="#F4ECF7", line_color="#884EA0", line_width=2)
+    fig.add_annotation(x=60, y=-1, text="INVERSOR HÍBRIDO MULTIMODO", showarrow=False, font=dict(size=11, color='#512E5F', family='Arial Black'))
+    fig.add_annotation(x=60, y=-7, text=f"S_nom: {inv_kva_val:.1f} kVA (FP = 0.95)", showarrow=False, font=dict(size=9.5))
+    fig.add_annotation(x=60, y=-13, text=f"Control EMS Set-point: {p_lim:.0f} kW", showarrow=False, font=dict(size=9.5, color='purple', family='Arial Black'))
     
-    fig.add_trace(go.Scatter(x=[45, 45], y=[-15, -30], mode='lines', line=dict(color='orange', width=2), showlegend=False))
-    fig.add_trace(go.Scatter(x=[75, 75], y=[-15, -30], mode='lines', line=dict(color='green', width=2), showlegend=False))
+    # PV and BESS connections
+    fig.add_trace(go.Scatter(x=[45, 45], y=[-20, -35], mode='lines', line=dict(color='orange', width=2), showlegend=False))
+    fig.add_trace(go.Scatter(x=[75, 75], y=[-20, -35], mode='lines', line=dict(color='green', width=2), showlegend=False))
     
-    fig.add_shape(type="rect", x0=32, y0=-45, x1=58, y1=-30, fillcolor="#FEF9E7", line_color="#F1C40F", line_width=1.5)
-    fig.add_annotation(x=45, y=-35, text="ARREGLO PV", showarrow=False, font=dict(size=10, family='Arial Black'))
-    fig.add_annotation(x=45, y=-41, text=f"{p_pv:.0f} kWp", showarrow=False, font=dict(size=10))
+    # PV Box
+    fig.add_shape(type="rect", x0=30, y0=-55, x1=58, y1=-35, fillcolor="#FEF9E7", line_color="#F1C40F", line_width=1.5)
+    fig.add_annotation(x=44, y=-41, text="ARREGLO PV", showarrow=False, font=dict(size=10, family='Arial Black'))
+    fig.add_annotation(x=44, y=-47, text=f"{potencia_pv:.0f} kWp", showarrow=False, font=dict(size=9.5))
+    fig.add_annotation(x=44, y=-52, text="Módulos PERC 550W", showarrow=False, font=dict(size=8.5))
     
-    fig.add_shape(type="rect", x0=62, y0=-45, x1=88, y1=-30, fillcolor="#E8F8F5", line_color="#2ECC71", line_width=1.5)
-    fig.add_annotation(x=75, y=-35, text="BANCO BESS", showarrow=False, font=dict(size=10, family='Arial Black'))
-    fig.add_annotation(x=75, y=-41, text=f"{c_bat:.0f} kWh", showarrow=False, font=dict(size=10))
+    # BESS Box
+    e_ut_val = c_bat * 0.80
+    fig.add_shape(type="rect", x0=62, y0=-55, x1=92, y1=-35, fillcolor="#E8F8F5", line_color="#2ECC71", line_width=1.5)
+    fig.add_annotation(x=77, y=-41, text="BANCO BESS LiFePO4", showarrow=False, font=dict(size=10, family='Arial Black'))
+    fig.add_annotation(x=77, y=-47, text=f"{c_bat:.0f} kWh (512V DC)", showarrow=False, font=dict(size=9.5))
+    fig.add_annotation(x=77, y=-52, text=f"E_util: {e_ut_val:.0f} kWh (DoD 80%)", showarrow=False, font=dict(size=8.5))
 
-    fig.update_layout(height=600, margin=dict(l=10, r=10, t=10, b=10), template='plotly_white')
+    fig.update_layout(height=650, margin=dict(l=10, r=10, t=10, b=10), template='plotly_white')
     return fig
 
 # ==========================================
@@ -273,12 +312,10 @@ if modulo_seleccionado == "📐 1. Diagrama Unifilar Jerárquico":
     st.subheader("📐 Módulo 1: Diagrama Unifilar Jerárquico Interactiva y Exportable CAD")
     st.markdown("Generación vectorial en tiempo real del esquema unifilar del Bloque D con simbología estandarizada e interconexión BESS/PV.")
     
-    # Renderizado en pantalla del Unifilar
-    fig_sld = build_plotly_sld(limite_red, capacidad_bess, potencia_pv, s_trafo)
+    fig_sld = build_plotly_sld_exact(limite_red, capacidad_bess, potencia_pv, s_trafo)
     st.plotly_chart(fig_sld, use_container_width=True)
     
-    # Exportación a AutoCAD .DXF
-    dxf_content = generate_unifilar_dxf(limite_red, capacidad_bess, potencia_pv, s_trafo)
+    dxf_content = generate_unifilar_dxf_exact(limite_red, capacidad_bess, potencia_pv, s_trafo)
     
     col_cad1, col_cad2 = st.columns([1, 2])
     with col_cad1:
@@ -317,8 +354,6 @@ elif modulo_seleccionado == "💥 4. Estudio de Cortocircuito (AIC)":
 elif modulo_seleccionado == "📄 5. Memoria Técnico-Descriptiva":
     st.subheader("📄 Módulo 5: Memoria Técnica y Especificaciones de Proyecto (Formato Oficial GPS Group)")
     
-    # Generación Word
-    from docx import Document
     def generar_memoria_completa_gps_docx():
         doc = Document()
         for section in doc.sections:
@@ -378,7 +413,7 @@ elif modulo_seleccionado == "📄 5. Memoria Técnico-Descriptiva":
 elif modulo_seleccionado == "💾 6. Exportación CAD & Reportes":
     st.subheader("💾 Módulo 6: Exportación de Expediente Ejecutivo y Reportes")
     csv_bytes = df_calc.to_csv(index=False).encode('utf-8')
-    dxf_content = generate_unifilar_dxf(limite_red, capacidad_bess, potencia_pv, s_trafo)
+    dxf_content = generate_unifilar_dxf_exact(limite_red, capacidad_bess, potencia_pv, s_trafo)
     
     col_d1, col_d2 = st.columns(2)
     with col_d1:
