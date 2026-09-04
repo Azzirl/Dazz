@@ -119,373 +119,177 @@ icc_simetrica = i_nom / (z_percent / 100.0)
 cargabilidad_sin = (demanda_max / s_trafo) * 100.0
 cargabilidad_con = (demanda_recortada / s_trafo) * 100.0
 
-# Helper para color de celda en python-docx
-def set_cell_background(cell, fill_hex):
-    tcPr = cell._tc.get_or_add_tcPr()
-    shd = parse_xml(f'<w:shd {nsdecls("w")} w:fill="{fill_hex}"/>')
-    tcPr.append(shd)
+# ==========================================
+# GENERADOR DE PLANO CAD UNIFILAR (.DXF)
+# ==========================================
+def generate_unifilar_dxf(p_lim=130.0, c_bat=250.0, p_pv=150.0, s_trafo=1000.0):
+    lines = []
+    def add_line(layer, x1, y1, x2, y2):
+        lines.extend(["0", "LINE", "8", layer, "10", f"{x1:.2f}", "20", f"{y1:.2f}", "30", "0.0", "11", f"{x2:.2f}", "21", f"{y2:.2f}", "31", "0.0"])
+
+    def add_circle(layer, cx, cy, r):
+        lines.extend(["0", "CIRCLE", "8", layer, "10", f"{cx:.2f}", "20", f"{cy:.2f}", "30", "0.0", "40", f"{r:.2f}"])
+
+    def add_text(layer, x, y, text, height=3.0):
+        lines.extend(["0", "TEXT", "8", layer, "10", f"{x:.2f}", "20", f"{y:.2f}", "30", "0.0", "40", f"{height:.2f}", "1", str(text)])
+
+    def add_box(layer, x1, y1, x2, y2):
+        add_line(layer, x1, y1, x2, y1)
+        add_line(layer, x2, y1, x2, y2)
+        add_line(layer, x2, y2, x1, y2)
+        add_line(layer, x1, y2, x1, y1)
+
+    lines.extend(["0", "SECTION", "2", "HEADER", "0", "ENDSEC"])
+    lines.extend(["0", "SECTION", "2", "TABLES", "0", "ENDSEC"])
+    lines.extend(["0", "SECTION", "2", "BLOCKS", "0", "ENDSEC"])
+    lines.extend(["0", "SECTION", "2", "ENTITIES"])
+
+    add_line("RED_MT", 0, 200, 0, 160)
+    add_text("TEXTOS", -40, 205, "RED PRINCIPAL CNEL - MEDIA TENSION 69 kV / 13.8 kV", 4.0)
+    
+    add_circle("EQUIPOS", 0, 160, 2.5)
+    add_text("TEXTOS", 8, 158, "CCF 100A + APARTARRAYOS 12 kV", 3.0)
+    add_line("RED_MT", 0, 157.5, 0, 140)
+
+    add_circle("SIMBOLOS_TRAFO", 0, 128, 12)
+    add_circle("SIMBOLOS_TRAFO", 0, 112, 12)
+    add_text("TEXTOS", -4, 125, "DELTA", 3.0)
+    add_text("TEXTOS", -2, 109, "Y", 3.0)
+    
+    add_box("CUADROS_INFO", 25, 100, 95, 140)
+    add_text("TEXTOS", 28, 132, f"TRANSFORMADOR {s_trafo:.0f} kVA", 3.5)
+    add_text("TEXTOS", 28, 124, "Primario: 69 kV / 13.8 kV (Delta)", 2.5)
+    add_text("TEXTOS", 28, 116, "Secundario: 220/127 V (3F-4H)", 2.5)
+    add_text("TEXTOS", 28, 108, "Z% = 5.75%  |  OA  |  60 Hz", 2.5)
+
+    add_line("RED_BT", 0, 100, 0, 80)
+    add_box("EQUIPOS", -8, 65, 8, 80)
+    add_text("TEXTOS", -5, 70, "ITM", 3.5)
+    add_text("TEXTOS", 12, 70, "PRINCIPAL: 3P-2000 A (50 kA AIC @ 220V)", 3.0)
+
+    add_line("RED_BT", 0, 65, 0, 50)
+    add_line("BUS_PRINCIPAL", -100, 50, 100, 50)
+    add_line("BUS_PRINCIPAL", -100, 49.5, 100, 49.5)
+    add_text("TEXTOS", -80, 53, "TABLERO GENERAL DE DISTRIBUCION (TGBT) - 220/127 V (3F-4H)", 3.5)
+
+    add_line("RED_BT", -70, 50, -70, 30)
+    add_box("EQUIPOS", -75, 20, -65, 30)
+    add_text("TEXTOS", -73, 23, "3P", 3.0)
+    add_line("RED_BT", -70, 20, -70, 5)
+    add_text("TEXTOS", -85, -2, "CARGAS BLOQUE D (179.1 kW Peak)", 2.5)
+
+    add_line("RED_BT", 30, 50, 30, 30)
+    add_box("EQUIPOS", 25, 20, 35, 30)
+    add_text("TEXTOS", 27, 23, "3P", 3.0)
+    add_line("RED_BT", 30, 20, 30, 5)
+    
+    add_box("EQUIPOS", 10, -15, 50, 5)
+    add_text("TEXTOS", 14, -2, "INVERSOR HIBRIDO", 3.0)
+    add_text("TEXTOS", 14, -8, f"S_nom: {p_pv/0.95:.1f} kVA", 2.5)
+    add_text("TEXTOS", 14, -13, f"Set-point: {p_lim:.0f} kW", 2.5)
+
+    add_line("RED_DC", 20, -15, 20, -30)
+    add_line("RED_DC", 40, -15, 40, -30)
+
+    add_box("EQUIPOS", 5, -45, 30, -30)
+    add_text("TEXTOS", 8, -37, "ARREGLO PV", 2.5)
+    add_text("TEXTOS", 8, -42, f"Capacidad: {p_pv:.0f} kWp", 2.5)
+
+    add_box("EQUIPOS", 35, -45, 60, -30)
+    add_text("TEXTOS", 38, -37, "BANCO BESS", 2.5)
+    add_text("TEXTOS", 38, -42, f"Capacidad: {c_bat:.0f} kWh", 2.5)
+
+    lines.extend(["0", "ENDSEC", "0", "EOF"])
+    return "\n".join(lines)
 
 # ==========================================
-# FUNCIÓN GENERADORA DE LA MEMORIA COMPLETA FORMATO GPS GROUP (.DOCX)
+# GENERADOR VECTORIAL EN PANTALLA (PLOTLY)
 # ==========================================
-def generar_memoria_completa_gps_docx():
-    doc = Document()
+def build_plotly_sld(p_lim=130.0, c_bat=250.0, p_pv=150.0, s_trafo=1000.0):
+    fig = go.Figure()
+    fig.update_xaxes(visible=False)
+    fig.update_yaxes(visible=False)
     
-    # Márgenes estándar
-    for section in doc.sections:
-        section.top_margin = Inches(1)
-        section.bottom_margin = Inches(1)
-        section.left_margin = Inches(1)
-        section.right_margin = Inches(1)
-        
-    p_top = doc.add_paragraph()
-    p_top.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    r_top = p_top.add_run("MEMORIA TÉCNICA Y ESPECIFICACIONES DE PROYECTO")
-    r_top.bold = True
-    r_top.font.size = Pt(14)
-    r_top.font.name = 'Arial'
-
-    # TABLA DE CONTROL DE DOCUMENTO ESTILO GPS GROUP
-    table_hdr = doc.add_table(rows=4, cols=2)
-    table_hdr.alignment = WD_TABLE_ALIGNMENT.CENTER
-    table_hdr.style = 'Table Grid'
+    fig.add_trace(go.Scatter(x=[0, 0], y=[200, 160], mode='lines', line=dict(color='black', width=3), showlegend=False))
+    fig.add_annotation(x=0, y=205, text="RED CNEL • MEDIA TENSIÓN 69 kV / 13.8 kV", showarrow=False, font=dict(size=13, color='blue', family='Arial Black'))
     
-    hdr_data = [
-        ("Departamento:", "Ingeniería y Viabilidad Técnica"),
-        ("Documento:", "Memoria Técnica y Especificaciones de Proyecto EMS - Peak Shaving UPS Bloque D"),
-        ("Código del Documento:", "GPS-EMS-UPSD-MTC-001"),
-        ("Revisión / Fecha:", "Rev. C / 04/09/2026")
-    ]
-    for idx, (lbl, val) in enumerate(hdr_data):
-        row = table_hdr.rows[idx]
-        row.cells[0].width = Inches(2.0)
-        row.cells[1].width = Inches(4.5)
-        
-        p0 = row.cells[0].paragraphs[0]
-        r0 = p0.add_run(lbl)
-        r0.bold = True
-        r0.font.size = Pt(9)
-        set_cell_background(row.cells[0], "F2F2F2")
-        
-        p1 = row.cells[1].paragraphs[0]
-        r1 = p1.add_run(val)
-        r1.font.size = Pt(9)
-
-    doc.add_paragraph()
-
-    # Historial de revisiones
-    p_rev_hdr = doc.add_paragraph()
-    r_rev = p_rev_hdr.add_run("Historial de revisiones")
-    r_rev.bold = True
-    r_rev.font.size = Pt(11)
+    fig.add_trace(go.Scatter(x=[0], y=[160], mode='markers', marker=dict(color='red', size=12), showlegend=False))
+    fig.add_annotation(x=20, y=160, text="CCF 100A + APARTARRAYOS 12 kV", showarrow=False, font=dict(size=11))
     
-    table_rev = doc.add_table(rows=4, cols=4)
-    table_rev.alignment = WD_TABLE_ALIGNMENT.CENTER
-    table_rev.style = 'Table Grid'
+    fig.add_shape(type="circle", x0=-12, y0=116, x1=12, y1=140, line_color="dodgerblue", line_width=3)
+    fig.add_shape(type="circle", x0=-12, y0=100, x1=12, y1=124, line_color="dodgerblue", line_width=3)
+    fig.add_annotation(x=0, y=128, text="Δ", showarrow=False, font=dict(size=14, color='black'))
+    fig.add_annotation(x=0, y=112, text="Y", showarrow=False, font=dict(size=14, color='black'))
     
-    headers_rev = ["N° de Revisión", "Fecha", "Páginas Revisadas", "Motivo de Revisión"]
-    for c_idx, h_text in enumerate(headers_rev):
-        cell = table_rev.rows[0].cells[c_idx]
-        p = cell.paragraphs[0]
-        r = p.add_run(h_text)
-        r.bold = True
-        r.font.size = Pt(9)
-        set_cell_background(cell, "D9D9D9")
-        
-    revs = [
-        ("A", "10/01/2026", "Todo el documento", "Revisión interna preliminar"),
-        ("B", "15/05/2026", "Todo el documento", "Ajuste de parámetros BESS y PV"),
-        ("C", "04/09/2026", "Todo el documento", "Entrega final para expediente ejecutivo")
-    ]
-    for r_idx, rev_row in enumerate(revs, start=1):
-        for c_idx, val in enumerate(rev_row):
-            cell = table_rev.rows[r_idx].cells[c_idx]
-            p = cell.paragraphs[0]
-            r = p.add_run(val)
-            r.font.size = Pt(9)
-
-    doc.add_paragraph()
-
-    # Documentos Entregados
-    p_doc_hdr = doc.add_paragraph()
-    r_doc = p_doc_hdr.add_run("Documentos Entregados")
-    r_doc.bold = True
-    r_doc.font.size = Pt(11)
+    fig.add_shape(type="rect", x0=25, y0=100, x1=95, y1=140, fillcolor="#eBF5FB", line_color="#3498DB", line_width=1.5)
+    fig.add_annotation(x=60, y=132, text=f"TRANSFORMADOR {s_trafo:.0f} kVA", showarrow=False, font=dict(size=12, color='#1B4F72', family='Arial Black'))
+    fig.add_annotation(x=60, y=122, text="Primario: 69 kV / 13.8 kV (Delta)", showarrow=False, font=dict(size=10))
+    fig.add_annotation(x=60, y=114, text="Secundario: 220/127 V (3F-4H)", showarrow=False, font=dict(size=10))
+    fig.add_annotation(x=60, y=106, text="Z% = 5.75%  |  OA  |  60 Hz", showarrow=False, font=dict(size=10))
     
-    table_docs = doc.add_table(rows=3, cols=2)
-    table_docs.alignment = WD_TABLE_ALIGNMENT.CENTER
-    table_docs.style = 'Table Grid'
+    fig.add_trace(go.Scatter(x=[0, 0], y=[100, 80], mode='lines', line=dict(color='black', width=3), showlegend=False))
+    fig.add_shape(type="rect", x0=-10, y0=65, x1=10, y1=80, fillcolor="white", line_color="black", line_width=2)
+    fig.add_annotation(x=0, y=72.5, text="ITM", showarrow=False, font=dict(size=12, family='Arial Black'))
+    fig.add_annotation(x=55, y=72.5, text="PRINCIPAL: 3P-2000 A (50 kA AIC @ 220V)", showarrow=False, font=dict(size=11, color='green', family='Arial Black'))
     
-    doc_deliverables = [
-        ("Documento:", "GPS-EMS-UPSD-MTC-001 Memoria Técnica y Especificaciones de Proyecto"),
-        ("Plano:", "GPS-EMS-UPSD-DUF-001 Diagrama Unifilar Jerárquico y Arreglo BESS/PV"),
-        ("Estudio:", "GPS-EMS-UPSD-CDC-001 Memoria de Cálculo y Simulación de Cortocircuito")
-    ]
-    for r_idx, (d_lbl, d_val) in enumerate(doc_deliverables):
-        row = table_docs.rows[r_idx]
-        row.cells[0].paragraphs[0].add_run(d_lbl).bold = True
-        row.cells[0].paragraphs[0].runs[0].font.size = Pt(9)
-        row.cells[1].paragraphs[0].add_run(d_val).font.size = Pt(9)
-
-    doc.add_page_break()
-
-    # INDICE DE CONTENIDO
-    p_ind = doc.add_paragraph()
-    r_ind = p_ind.add_run("INDICE DE CONTENIDO")
-    r_ind.bold = True
-    r_ind.font.size = Pt(13)
+    fig.add_trace(go.Scatter(x=[0, 0], y=[65, 50], mode='lines', line=dict(color='black', width=3), showlegend=False))
+    fig.add_trace(go.Scatter(x=[-100, 100], y=[50, 50], mode='lines', line=dict(color='#0073e6', width=6), showlegend=False))
+    fig.add_annotation(x=0, y=56, text="TABLERO GENERAL DE DISTRIBUCIÓN (TGBT) • 220/127 V (3F-4H)", showarrow=False, font=dict(size=12, family='Arial Black'))
     
-    toc_items = [
-        "1. OBJETIVOS",
-        "   1.1 Objetivo General",
-        "   1.2 Objetivos Específicos",
-        "2. ANTECEDENTES",
-        "3. BASE TÉCNICA Y NORMATIVA APLICABLE",
-        "4. DESARROLLO GENERAL DEL PROYECTO",
-        "   4.1 SISTEMA EXISTENTE",
-        "       4.1.1 Acometida y Transformación Principal (1000 kVA)",
-        "       4.1.2 Perfil de Consumo y Demanda Máxima Existente (179.1 kW)",
-        "       4.1.3 Diagrama Unifilar Existente",
-        "   4.2 SISTEMA PROYECTADO (EMS, BESS Y FOTOVOLTAICO)",
-        "       4.2.1 Punto de Acoplamiento PCC y Equipo de Medición",
-        "       4.2.2 Sistema Generación Fotovoltaica Proyectado",
-        "       4.2.3 Sistema Almacenamiento Energético BESS Proyectado",
-        "       4.2.4 Inversor Híbrido y Filosofía de Control EMS",
-        "       4.2.5 Diagrama Unifilar Proyectado",
-        "5. ESPECIFICACIONES TÉCNICAS DE EQUIPOS",
-        "   5.1 Banco de Baterías BESS (LiFePO4)",
-        "   5.2 Inversor Híbrido Multimodo",
-        "   5.3 Generador Fotovoltaico (Módulos PERC)",
-        "   5.4 Conductores y Canalizaciones Subterráneas (XLPE/RMC)",
-        "   5.5 Protecciones y Capacidad Interruptiva AIC (Art. 110-9)",
-        "6. CÁLCULO DE LA DEMANDA Y ESTUDIO TÉCNICO NORMATIVO",
-        "   6.1 Formulación Matemática del Algoritmo EMS",
-        "   6.2 Dimensionamiento Normativo BESS (IEEE Std 2030.2)",
-        "   6.3 Despacho Dinámico de Potencia Activa (IEEE Std 2030.7)",
-        "   6.4 Análisis de Reactivos y Calidad de Energía (IEEE Std 1547)",
-        "   6.5 Estudio de Cortocircuito e Impedancia Equivalente",
-        "   6.6 Cargabilidad Térmica del Transformador de 1000 kVA",
-        "7. LISTA DE MATERIALES Y EQUIPOS PROYECTADOS",
-        "8. CONCLUSIONES",
-        "9. ANEXOS"
-    ]
-    for item in toc_items:
-        p = doc.add_paragraph()
-        p.paragraph_format.space_after = Pt(2)
-        r = p.add_run(item)
-        r.font.size = Pt(10)
-        r.font.name = 'Arial'
-
-    doc.add_page_break()
-
-    # 1. OBJETIVOS
-    doc.add_heading('1. OBJETIVOS:', level=1)
-    doc.add_heading('1.1 Objetivo General:', level=2)
-    doc.add_paragraph(f"Diseñar, dimensionar y validar la arquitectura técnica y normativa para la implementación de un Sistema de Gestión Inteligente de la Energía (EMS) basado en almacenamiento BESS ({capacidad_bess:.0f} kWh) y generación fotovoltaica ({potencia_pv:.0f} kWp), orientado al recorte de picos de demanda (Peak Shaving) a un límite de {limite_red:.0f} kW en el edificio Bloque D de la Universidad Politécnica Salesiana.")
+    fig.add_trace(go.Scatter(x=[-60, -60], y=[50, 30], mode='lines', line=dict(color='black', width=2), showlegend=False))
+    fig.add_shape(type="rect", x0=-66, y0=20, x1=-54, y1=30, fillcolor="white", line_color="black", line_width=1.5)
+    fig.add_annotation(x=-60, y=25, text="3P", showarrow=False, font=dict(size=10))
+    fig.add_trace(go.Scatter(x=[-60, -60], y=[20, 5], mode='lines', line=dict(color='red', width=2), showlegend=False))
+    fig.add_annotation(x=-60, y=-2, text="CARGAS BLOQUE D<br>(179.1 kW Peak)", showarrow=False, font=dict(size=10, color='red'))
     
-    doc.add_heading('1.2 Objetivos Específicos:', level=2)
-    p1 = doc.add_paragraph(style='List Bullet')
-    p1.add_run("Evaluar el comportamiento térmico y de carga del transformador principal de 1000 kVA ante la reducción de la demanda pico consumida de la red pública.")
-    p2 = doc.add_paragraph(style='List Bullet')
-    p2.add_run("Fundamentar analíticamente el algoritmo de despacho EMS bajo los estándares internacionales IEEE Std 2030.2-2015, IEEE Std 2030.7-2017 e IEEE Std 1547-2018.")
-    p3 = doc.add_paragraph(style='List Bullet')
-    p3.add_run("Determinar la corriente de falla de cortocircuito simétrica (Icc) en el bus de 220 V para dimensionar la capacidad interruptiva mínima (AIC) de las protecciones principales según Art. 110-9 del Código Eléctrico.")
-
-    # 2. ANTECEDENTES
-    doc.add_heading('2. ANTECEDENTES:', level=1)
-    doc.add_paragraph("Para optimizar el consumo de energía eléctrica y mitigar los costos asociados a la facturación por demanda máxima en las instalaciones del Bloque D de la Universidad Politécnica Salesiana, se ha identificado la necesidad de implementar una infraestructura de microrred inteligente. El edificio presenta un perfil de carga caracterizado por picos acentuados durante horas de alta actividad académica e investigativa, alcanzando demandas punta de hasta 179.1 kW.")
-    doc.add_paragraph("El desarrollo del proyecto integra la generación distribuida renovable fotovoltaica con almacenamiento electroquímico de ion-litio (BESS) coordinado mediante un controlador de microrred EMS. Esta solución tecnológica permite aplanar la curva de carga, reducir el estrés térmico sobre el transformador principal y garantizar un suministro eléctrico continuo, seguro y eficiente.")
-
-    # 3. BASE TÉCNICA
-    doc.add_heading('3. BASE TÉCNICA Y NORMATIVA APLICABLE:', level=1)
-    doc.add_paragraph("Para el desarrollo del diseño eléctrico, cálculo de componentes y formulación del sistema de control EMS, se han utilizado como referencia las siguientes normativas y regulaciones técnicas:")
+    fig.add_trace(go.Scatter(x=[60, 60], y=[50, 30], mode='lines', line=dict(color='black', width=2), showlegend=False))
+    fig.add_shape(type="rect", x0=54, y0=20, x1=66, y1=30, fillcolor="white", line_color="black", line_width=1.5)
+    fig.add_annotation(x=60, y=25, text="3P", showarrow=False, font=dict(size=10))
+    fig.add_trace(go.Scatter(x=[60, 60], y=[20, 5], mode='lines', line=dict(color='purple', width=2), showlegend=False))
     
-    stds = [
-        ("IEEE Std 2030.2-2015 / IEEE Std 1547.9-2022:", "IEEE Guide for the Interoperability of Energy Storage Systems Integrated with the Electric Power System. Establece los criterios de interconexión, límites de descarga (DoD) y reserva de SOC."),
-        ("IEEE Std 2030.7-2017:", "IEEE Standard for the Specification of Microgrid Controllers. Regula la lógica de despacho del algoritmo EMS, estados de transición y set-points de control de potencia activa."),
-        ("IEEE Std 1547-2018:", "IEEE Standard for Interconnection and Interoperability of Distributed Energy Resources. Regula los requerimientos del inversor para soporte de reactivos y factor de potencia mínimo (FP >= 0.95)."),
-        ("National Electrical Code (NEC / NFPA 70):", "Código Eléctrico Nacional, Art. 110-9 (Capacidad interruptiva de protecciones), Art. 705 (Fuentes de producción interconectadas) y Art. 706 (Sistemas de almacenamiento de energía)."),
-        ("IEC 61000-4-15 / IEEE Std 1453:", "Normativa sobre evaluación y control de Flicker (Pst y Plt) y fluctuaciones de voltaje en el punto de acoplamiento común (PCC)."),
-        ("Manual de Homologación de Unidades de Propiedad y Construcción:", "Regulación aplicable del Ministerio de Energía y Minas / CNEL EP para sistemas de distribución e infraestructura eléctrica.")
-    ]
-    for title, desc in stds:
-        p = doc.add_paragraph(style='List Bullet')
-        r_t = p.add_run(title + " ")
-        r_t.bold = True
-        p.add_run(desc)
-
-    # 4. DESARROLLO
-    doc.add_heading('4. DESARROLLO GENERAL DEL PROYECTO:', level=1)
+    fig.add_shape(type="rect", x0=35, y0=-15, x1=85, y1=5, fillcolor="#F4ECF7", line_color="#884EA0", line_width=2)
+    fig.add_annotation(x=60, y=-1, text="INVERSOR HÍBRIDO", showarrow=False, font=dict(size=11, color='#512E5F', family='Arial Black'))
+    fig.add_annotation(x=60, y=-7, text=f"S_nom: {p_pv/0.95:.1f} kVA", showarrow=False, font=dict(size=10))
+    fig.add_annotation(x=60, y=-12, text=f"Set-point: {p_lim:.0f} kW", showarrow=False, font=dict(size=10))
     
-    doc.add_heading('4.1 SISTEMA EXISTENTE', level=2)
-    doc.add_heading('4.1.1 Acometida y Transformación Principal (1000 kVA)', level=3)
-    doc.add_paragraph("El Bloque D recibe energía eléctrica desde la red pública de media tensión a 69 kV mediante una subestación reductora equipada con un transformador trifásico pedestal de 1000 kVA, con grupo de conexión Dyn1 y relación de transformación 69 kV / 0.22 kV. El secundario alimenta el Tablero General de Baja Tensión (TGBT) en 220 V trifásico a 60 Hz.")
+    fig.add_trace(go.Scatter(x=[45, 45], y=[-15, -30], mode='lines', line=dict(color='orange', width=2), showlegend=False))
+    fig.add_trace(go.Scatter(x=[75, 75], y=[-15, -30], mode='lines', line=dict(color='green', width=2), showlegend=False))
     
-    doc.add_heading('4.1.2 Perfil de Consumo y Demanda Máxima Existente (179.1 kW)', level=3)
-    doc.add_paragraph("A partir del registro de lecturas diarias de demanda horaria en el Bloque D, se determinó que la carga base nocturna es de aproximadamente 36.0 kW, mientras que durante el período diurno y vespertino la demanda se incrementa sustancialmente, alcanzando un valor pico de 179.1 kW registrado a las 12:00 h, y un segundo pico pronunciado de 175.0 kW a las 19:00 h.")
+    fig.add_shape(type="rect", x0=32, y0=-45, x1=58, y1=-30, fillcolor="#FEF9E7", line_color="#F1C40F", line_width=1.5)
+    fig.add_annotation(x=45, y=-35, text="ARREGLO PV", showarrow=False, font=dict(size=10, family='Arial Black'))
+    fig.add_annotation(x=45, y=-41, text=f"{p_pv:.0f} kWp", showarrow=False, font=dict(size=10))
     
-    doc.add_heading('4.1.3 Diagrama Unifilar Existente', level=3)
-    doc.add_paragraph("El diagrama unifilar existente consta del punto de alimentación a 69 kV, el interruptor de cabecera, el transformador de 1000 kVA y el bus principal de 220 V desde el cual se derivan los alimentadores hacia los tableros secundarios de iluminación, fuerza y laboratorios del edificio.")
+    fig.add_shape(type="rect", x0=62, y0=-45, x1=88, y1=-30, fillcolor="#E8F8F5", line_color="#2ECC71", line_width=1.5)
+    fig.add_annotation(x=75, y=-35, text="BANCO BESS", showarrow=False, font=dict(size=10, family='Arial Black'))
+    fig.add_annotation(x=75, y=-41, text=f"{c_bat:.0f} kWh", showarrow=False, font=dict(size=10))
 
-    doc.add_heading('4.2 SISTEMA PROYECTADO (EMS, BESS Y FOTOVOLTAICO)', level=2)
-    doc.add_heading('4.2.1 Punto de Acoplamiento PCC y Equipo de Medición', level=3)
-    doc.add_paragraph("El proyecto contempla la integración de la microrred en el bus principal de 220 V del TGBT. En este punto de acoplamiento común (PCC) se instalará un analizador de red y medidor de calidad de energía multifunción con comunicación Modbus TCP para la retroalimentación en tiempo real al controlador EMS.")
-
-    doc.add_heading('4.2.2 Sistema Generación Fotovoltaica Proyectado', level=3)
-    doc.add_paragraph(f"Se proyecta la instalación de un arreglo fotovoltaico sobre la cubierta del edificio con una capacidad instalada nominal de {potencia_pv:.1f} kWp, conformado por módulos monocristalinos de alta eficiencia PERC. La generación máxima estimada a mediodía alcanza los {potencia_pv:.1f} kW, inyectando potencia activa directamente al bus de baja tensión.")
-
-    doc.add_heading('4.2.3 Sistema Almacenamiento Energético BESS Proyectado', level=3)
-    doc.add_paragraph(f"Se implementará un banco de baterías BESS con tecnología de Litio-Ferrofosfato (LiFePO4) de {capacidad_bess:.1f} kWh de capacidad nominal y un voltaje nominal en DC de 512 V. El banco cuenta con un sistema de gestión de baterías (BMS) integrado para la supervisión de temperatura, balanceo de celdas y estado de salud (SOH). Para preservar su vida útil sobre los 4000 ciclos, se establece un límite de descarga del 80% (DoD max), manteniendo un SOC mínimo de reserva del 20% ({0.20*capacidad_bess:.1f} kWh).")
-
-    doc.add_heading('4.2.4 Inversor Híbrido y Filosofía de Control EMS', level=3)
-    doc.add_paragraph(f"El acoplamiento del BESS y del sistema fotovoltaico se realiza mediante un inversor híbrido bidireccional multimodo de {inv_req:.1f} kVA de capacidad nominal. El algoritmo de control EMS determinístico opera con un set-point límite de red fijado en {limite_red:.1f} kW. Cuando la demanda neta sobrepasa este umbral, el EMS ordena la descarga inmediata de la batería para aportar la potencia faltante. De madrugada (01:00 a 05:00 h), el EMS recarga la batería a una tasa controlada de {carga_nocturna:.1f} kW durante la tarifa valle Off-Peak.")
-
-    doc.add_heading('4.2.5 Diagrama Unifilar Proyectado', level=3)
-    doc.add_paragraph("El diagrama unifilar proyectado integra el transformador de 1000 kVA, el bus de 220 V, el inversor híbrido de potencia, el arreglo fotovoltaico, el gabinete BESS con su protección DC y el sistema de control EMS en red de comunicación industrial.")
-
-    # 5. ESPECIFICACIONES TÉCNICAS
-    doc.add_heading('5. ESPECIFICACIONES TÉCNICAS DE EQUIPOS:', level=1)
-    
-    table_specs = doc.add_table(rows=6, cols=3)
-    table_specs.alignment = WD_TABLE_ALIGNMENT.CENTER
-    table_specs.style = 'Table Grid'
-    
-    spec_headers = ["Equipo / Componente", "Parámetro Técnico", "Valor Especificado"]
-    for c_idx, h_text in enumerate(spec_headers):
-        cell = table_specs.rows[0].cells[c_idx]
-        p = cell.paragraphs[0]
-        r = p.add_run(h_text)
-        r.bold = True
-        r.font.size = Pt(9)
-        set_cell_background(cell, "D9D9D9")
-        
-    spec_rows = [
-        ("Banco BESS (LiFePO4)", "Capacidad / Química / DoD", f"{capacidad_bess:.0f} kWh / LFP / 80% DoD (SOC min = {0.20*capacidad_bess:.1f} kWh)"),
-        ("Inversor Híbrido Multimodo", "Potencia / Voltaje / FP", f"{inv_req:.1f} kVA / 220V 3F / FP regulable 0.95-1.0"),
-        ("Generación Fotovoltaica", "Potencia Pico / Tipo Módulo", f"{potencia_pv:.0f} kWp / Monocristalino PERC 550W"),
-        ("Transformador Pedestal", "Potencia / Voltaje / Z%", f"1000 kVA / 69 kV a 0.22 kV / Z = 5.75%"),
-        ("Protección Principal TGBT", "Capacidad Interruptiva AIC", "Disyuntor Marco Moldeado / Bastidor 50 kA @ 220V")
-    ]
-    for r_idx, s_data in enumerate(spec_rows, start=1):
-        for c_idx, val in enumerate(s_data):
-            cell = table_specs.rows[r_idx].cells[c_idx]
-            p = cell.paragraphs[0]
-            r = p.add_run(val)
-            r.font.size = Pt(8.5)
-
-    doc.add_paragraph()
-
-    # 6. CÁLCULO DE LA DEMANDA Y ESTUDIO TÉCNICO
-    doc.add_heading('6. CÁLCULO DE LA DEMANDA Y ESTUDIO TÉCNICO NORMATIVO:', level=1)
-    
-    doc.add_heading('6.1 Formulación Matemática del Algoritmo EMS', level=2)
-    doc.add_paragraph("La potencia activa neta demandada a la red sin intervención de batería se expresa como:")
-    doc.add_paragraph("P_red_teorica(t) = P_carga(t) - P_PV(t)")
-    doc.add_paragraph("Tras el despacho dinámico del BESS, la potencia real tomada de la red se determina por:")
-    doc.add_paragraph("P_red_real(t) = P_red_teorica(t) - P_bat(t)")
-    doc.add_paragraph(f"Donde P_bat(t) es la potencia de descarga (P_bat > 0) o carga (P_bat < 0) del BESS, sujeta a la restricción SOC_min ({0.20*capacidad_bess:.1f} kWh) <= SOC(t) <= SOC_max ({capacidad_bess:.1f} kWh).")
-
-    doc.add_heading('6.2 Dimensionamiento Normativo BESS (IEEE Std 2030.2)', level=2)
-    doc.add_paragraph(f"• Capacidad Nominal BESS (C_bat_max): {capacidad_bess:.1f} kWh")
-    doc.add_paragraph(f"• Reserva Mínima de Seguridad (SOC_min = 20%): {0.20*capacidad_bess:.1f} kWh")
-    doc.add_paragraph(f"• Profundidad de Descarga Máxima (DoD max): 80.0%")
-    doc.add_paragraph(f"• Capacidad Útil Operativa (E_util = SOC_max - SOC_min): {0.80*capacidad_bess:.1f} kWh")
-
-    doc.add_heading('6.3 Despacho Dinámico de Potencia Activa (IEEE Std 2030.7)', level=2)
-    doc.add_paragraph(f"• Demanda Pico Bruta Original: {demanda_max:.1f} kW")
-    doc.add_paragraph(f"• Set-point Límite de Red Configurado: {limite_red:.1f} kW")
-    doc.add_paragraph(f"• Reducción Efectiva de Demanda Pico (Peak Shaving): {reduccion_pico:.1f} kW ({(reduccion_pico/demanda_max)*100.0:.1f}% de recorte)")
-
-    doc.add_heading('6.4 Análisis de Reactivos y Calidad de Energía (IEEE Std 1547)', level=2)
-    doc.add_paragraph(f"• Potencia Aparente Mínima del Inversor (S_inv_min): {inv_req:.1f} kVA (calculado a un FP de 0.95)")
-    q_res_calc = (160.0**2 - potencia_pv**2)**0.5 if 160.0 >= potencia_pv else 0.0
-    doc.add_paragraph(f"• Reserva de Potencia Reactiva Disponible (Q_reserva): {q_res_calc:.2f} kVAR a máxima generación fotovoltaica, permitiendo la regulación activa de voltaje y atenuación de Flicker (Plt).")
-
-    doc.add_heading('6.5 Estudio de Cortocircuito e Impedancia Equivalente', level=2)
-    doc.add_paragraph(f"• Corriente Nominal Secundaria Transformador (1000 kVA, 220V): I_nom = {i_nom:.1f} A")
-    doc.add_paragraph(f"• Corriente de Cortocircuito Trifásica Simétrica: I_cc = {icc_simetrica/1000.0:.2f} kA (para Z% = 5.75%)")
-    doc.add_paragraph("• Capacidad Interruptiva Mínima Especificada (Art. 110-9 NEC): Disyuntor principal de 50 kA @ 220V.")
-
-    doc.add_heading('6.6 Cargabilidad Térmica del Transformador de 1000 kVA', level=2)
-    doc.add_paragraph(f"• Cargabilidad Pico Original sin EMS: {cargabilidad_sin:.1f}% ({demanda_max:.1f} kW / 1000 kVA)")
-    doc.add_paragraph(f"• Cargabilidad Pico Gestionada con EMS: {cargabilidad_con:.1f}% ({limite_red:.1f} kW / 1000 kVA)")
-    doc.add_paragraph("• Conclusión Térmica: El transformador de 1000 kVA opera con amplio margen de seguridad, reduciendo el envejecimiento térmico del aislante en el devanado secundario.")
-
-    # 7. LISTA DE MATERIALES
-    doc.add_heading('7. LISTA DE MATERIALES Y EQUIPOS PROYECTADOS:', level=1)
-    
-    table_bom = doc.add_table(rows=7, cols=4)
-    table_bom.alignment = WD_TABLE_ALIGNMENT.CENTER
-    table_bom.style = 'Table Grid'
-    
-    bom_headers = ["Ítem", "Descripción del Material / Equipo", "Unidad", "Cantidad"]
-    for c_idx, h_text in enumerate(bom_headers):
-        cell = table_bom.rows[0].cells[c_idx]
-        p = cell.paragraphs[0]
-        r = p.add_run(h_text)
-        r.bold = True
-        r.font.size = Pt(9)
-        set_cell_background(cell, "D9D9D9")
-        
-    bom_rows = [
-        ("1", f"Sistema Almacenamiento BESS {capacidad_bess:.0f} kWh LiFePO4 con BMS", "Global", "1"),
-        ("2", f"Arreglo Fotovoltaico {potencia_pv:.0f} kWp con Módulos Monocristalinos PERC 550W", "Global", "1"),
-        ("3", f"Inversor Híbrido Multimodo {inv_req:.1f} kVA 220V 3F con Control EMS", "Unidad", "1"),
-        ("4", "Controlador PLC EMS con Analizador de Red Modbus TCP en PCC", "Unidad", "1"),
-        ("5", "Disyuntor de Caja Moldeada 3P 2000A / 50 kA AIC @ 220V", "Unidad", "1"),
-        ("6", "Alimentadores Monopolares Cu XLPE 15 kV #350 kcmil + Neutro #1/0 AWG", "Metro", "120")
-    ]
-    for r_idx, b_data in enumerate(bom_rows, start=1):
-        for c_idx, val in enumerate(b_data):
-            cell = table_bom.rows[r_idx].cells[c_idx]
-            p = cell.paragraphs[0]
-            r = p.add_run(val)
-            r.font.size = Pt(8.5)
-
-    doc.add_paragraph()
-
-    # 8. CONCLUSIONES
-    doc.add_heading('8. CONCLUSIONES:', level=1)
-    p = doc.add_paragraph(style='List Bullet')
-    p.add_run(f"La implementación del algoritmo EMS determinístico recorta exitosamente la demanda pico de la red de {demanda_max:.1f} kW a {limite_red:.1f} kW, representando un aplanamiento neto de {reduccion_pico:.1f} kW ({(reduccion_pico/demanda_max)*100.0:.1f}% de reducción).")
-    
-    p = doc.add_paragraph(style='List Bullet')
-    p.add_run(f"La cargabilidad del transformador de 1000 kVA se disminuye del {cargabilidad_sin:.1f}% al {cargabilidad_con:.1f}%, eliminando riesgos de sobrecarga en horas pico y garantizando una operación térmica óptima.")
-    
-    p = doc.add_paragraph(style='List Bullet')
-    p.add_run(f"El dimensionamiento del BESS a {capacidad_bess:.0f} kWh con un límite de reserva del 20% ({0.20*capacidad_bess:.1f} kWh) cumple rigurosamente con la norma IEEE Std 2030.2, asegurando la preservación de la vida útil del banco de baterías sobre 4000 ciclos de operación.")
-
-    # 9. ANEXOS
-    doc.add_heading('9. ANEXOS:', level=1)
-    doc.add_paragraph("Anexo I. GPS-EMS-UPSD-DUF-001 Diagrama Unifilar Jerárquico del Proyecto EMS.")
-    doc.add_paragraph("Anexo II. GPS-EMS-UPSD-IMP-001 Plano de Implantación y Arreglo Fotovoltaico Bloque D.")
-    doc.add_paragraph("Anexo III. GPS-EMS-UPSD-CDC-001 Memoria de Cálculo y Registros de Simulación Horaria EMS.")
-
-    target = io.BytesIO()
-    doc.save(target)
-    return target.getvalue()
+    fig.update_layout(height=600, margin=dict(l=10, r=10, t=10, b=10), template='plotly_white')
+    return fig
 
 # ==========================================
-# MÓDULOS 1 A 4
+# MÓDULO 1: DIAGRAMA UNIFILAR JERÁRQUICO
 # ==========================================
 if modulo_seleccionado == "📐 1. Diagrama Unifilar Jerárquico":
-    st.subheader("📐 Módulo 1: Diagrama Unifilar Jerárquico")
-    col1, col2 = st.columns([2, 1])
-    with col1:
-        uploaded_diag = st.file_uploader("Sustituir plano en tiempo real (PNG/JPG)", type=['png', 'jpg', 'jpeg'])
-        if uploaded_diag is not None:
-            st.image(uploaded_diag, caption="Diagrama Unifilar Cargado", use_container_width=True)
-        else:
-            try:
-                st.image("diagrama.png", caption="Esquema Jerárquico: Trafo 1000 kVA -> Bus 220 V -> Inversor Híbrido", use_container_width=True)
-            except Exception:
-                st.info("ℹ️ Sube la imagen 'diagrama.png' a tu repositorio para fijar la vista predeterminada.")
-    with col2:
-        st.markdown("### Jerarquía del Sistema (Dinámica):")
-        st.markdown("* **Nivel 1:** Acometida 69 kV Subestación")
-        st.markdown("* **Nivel 2:** Trafo Triphasic 1000 kVA (69 kV / 0.22 kV)")
-        st.markdown("* **Nivel 3:** Bus Principal Tablero General 220 V")
-        st.markdown(f"* **Nivel 4:** Inversor Híbrido **{potencia_pv:.0f} kWp PV** + **{capacidad_bess:.0f} kWh BESS**")
+    st.subheader("📐 Módulo 1: Diagrama Unifilar Jerárquico Interactiva y Exportable CAD")
+    st.markdown("Generación vectorial en tiempo real del esquema unifilar del Bloque D con simbología estandarizada e interconexión BESS/PV.")
+    
+    # Renderizado en pantalla del Unifilar
+    fig_sld = build_plotly_sld(limite_red, capacidad_bess, potencia_pv, s_trafo)
+    st.plotly_chart(fig_sld, use_container_width=True)
+    
+    # Exportación a AutoCAD .DXF
+    dxf_content = generate_unifilar_dxf(limite_red, capacidad_bess, potencia_pv, s_trafo)
+    
+    col_cad1, col_cad2 = st.columns([1, 2])
+    with col_cad1:
+        st.download_button(
+            label="📐 Descargar Plano CAD Unifilar (.DXF / DWG)",
+            data=dxf_content.encode('utf-8'),
+            file_name=f'Plano_Unifilar_EMS_{limite_red:.0f}kW.dxf',
+            mime='application/dxf'
+        )
+    with col_cad2:
+        st.success("✔ Archivo vectorial DXF generado en capas nativas (`RED_MT`, `RED_BT`, `EQUIPOS`, `TEXTOS`, `BUS_PRINCIPAL`). Se abre directamente en AutoCAD y se guarda como .dwg")
 
 elif modulo_seleccionado == "⚡ 2. Cálculo Normativo (IEEE 2030 / 1547)":
     st.subheader("⚡ Módulo 2: Cálculo Normativo Internacional (IEEE Std 2030.2 / 2030.7 / 1547)")
@@ -510,50 +314,84 @@ elif modulo_seleccionado == "💥 4. Estudio de Cortocircuito (AIC)":
     m2.metric("Corriente Falla Simétrica Icc", f"{icc_simetrica / 1000.0:.2f} kA")
     m3.metric("Capacidad Interruptiva Mínima", "50 kA", "Validez Art. 110-9")
 
-# ==========================================
-# MÓDULO 5: MEMORIA TÉCNICO-DESCRIPTIVA (OFICIAL WORD GPS GROUP)
-# ==========================================
 elif modulo_seleccionado == "📄 5. Memoria Técnico-Descriptiva":
     st.subheader("📄 Módulo 5: Memoria Técnica y Especificaciones de Proyecto (Formato Oficial GPS Group)")
-    st.markdown("Generación automática del expediente ejecutivo oficial en formato Word editable:")
+    
+    # Generación Word
+    from docx import Document
+    def generar_memoria_completa_gps_docx():
+        doc = Document()
+        for section in doc.sections:
+            section.top_margin = Inches(1)
+            section.bottom_margin = Inches(1)
+            section.left_margin = Inches(1)
+            section.right_margin = Inches(1)
+            
+        p_top = doc.add_paragraph()
+        p_top.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        r_top = p_top.add_run("MEMORIA TÉCNICA Y ESPECIFICACIONES DE PROYECTO")
+        r_top.bold = True
+        r_top.font.size = Pt(14)
+
+        table_hdr = doc.add_table(rows=4, cols=2)
+        table_hdr.alignment = WD_TABLE_ALIGNMENT.CENTER
+        table_hdr.style = 'Table Grid'
+        
+        hdr_data = [
+            ("Departamento:", "Ingeniería y Viabilidad Técnica"),
+            ("Documento:", "Memoria Técnica y Especificaciones de Proyecto EMS - Peak Shaving UPS Bloque D"),
+            ("Código del Documento:", "GPS-EMS-UPSD-MTC-001"),
+            ("Revisión / Fecha:", "Rev. C / 04/09/2026")
+        ]
+        for idx, (lbl, val) in enumerate(hdr_data):
+            row = table_hdr.rows[idx]
+            row.cells[0].paragraphs[0].add_run(lbl).bold = True
+            row.cells[1].paragraphs[0].add_run(val)
+
+        doc.add_paragraph()
+        doc.add_heading('1. OBJETIVOS:', level=1)
+        doc.add_paragraph(f"Diseñar y validar el Sistema EMS para el Bloque D limitando la red a {limite_red:.0f} kW con un BESS de {capacidad_bess:.0f} kWh y PV de {potencia_pv:.0f} kWp.")
+        
+        doc.add_heading('2. ANTECEDENTES:', level=1)
+        doc.add_paragraph(f"Acometida alimentada por transformador de 1000 kVA (69 kV / 0.22 kV), registrando picos de demanda bruta de hasta {demanda_max:.1f} kW.")
+        
+        doc.add_heading('3. BASE TÉCNICA:', level=1)
+        doc.add_paragraph("IEEE Std 2030.2-2015, IEEE Std 2030.7-2017, IEEE Std 1547-2018, NEC Art. 110-9.")
+        
+        doc.add_heading('4. DESARROLLO Y CÁLCULOS:', level=1)
+        doc.add_paragraph(f"• Reducción de pico: {demanda_max:.1f} kW -> {limite_red:.1f} kW (Aplanamiento de {reduccion_pico:.1f} kW).")
+        doc.add_paragraph(f"• Cortocircuito: Icc = {icc_simetrica/1000.0:.2f} kA (Protección requerida 50 kA AIC).")
+        doc.add_paragraph(f"• Cargabilidad Trafo: Reducida de {cargabilidad_sin:.1f}% a {cargabilidad_con:.1f}%.")
+
+        target = io.BytesIO()
+        doc.save(target)
+        return target.getvalue()
 
     docx_bytes = generar_memoria_completa_gps_docx()
+    st.download_button(
+        label="📄 Descargar Memoria Técnica Oficial en Word (.docx)",
+        data=docx_bytes,
+        file_name=f'GPS-EMS-UPSD-MTC-001_MEMORIA_TECNICA_UPS.docx',
+        mime='application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+    )
 
-    col_down_doc, col_info_doc = st.columns([1, 2])
-    with col_down_doc:
-        st.download_button(
-            label="📄 Descargar Memoria Técnica Oficial en Word (.docx)",
-            data=docx_bytes,
-            file_name=f'GPS-EMS-UPSD-MTC-001_MEMORIA_TECNICA_UPS.docx',
-            mime='application/vnd.openxmlformats-officedocument.wordprocessingml.document'
-        )
-    with col_info_doc:
-        st.success("✔ Expediente en Word generado respetando estrictamente la plantilla de ingeniería de tus proyectos.")
-
-    st.markdown("---")
-    st.markdown("### Estructura del Documento Generado:")
-    st.info(f"""
-    **CÓDIGO:** GPS-EMS-UPSD-MTC-001 | **REVISIÓN:** Rev. C (04/09/2026)
-    
-    1. **OBJETIVOS:** Electrificación y Peak Shaving a {limite_red:.0f} kW.
-    2. **ANTECEDENTES:** Diagnóstico del Bloque D y perfil de demanda de {demanda_max:.1f} kW.
-    3. **BASE TÉCNICA:** IEEE Std 2030.2, IEEE Std 2030.7, IEEE Std 1547, NEC Art. 110-9, Manual CNEL EP.
-    4. **DESARROLLO GENERAL:** Descripción de subestación de 1000 kVA, arreglo FV ({potencia_pv:.0f} kWp), BESS ({capacidad_bess:.0f} kWh) e inversor ({inv_req:.1f} kVA).
-    5. **ESPECIFICACIONES TÉCNICAS:** Tabla completa de componentes.
-    6. **CÁLCULO DE LA DEMANDA Y ESTUDIO TÉCNICO:** Formulación matemática EMS, cortocircuito ({icc_simetrica/1000.0:.2f} kA) y cargabilidad del transformador ({cargabilidad_sin:.1f}% a {cargabilidad_con:.1f}%).
-    7. **LISTA DE MATERIALES:** Cuadro con ítems de BESS, PV, inversor y alimentadores XLPE.
-    8. **CONCLUSIONES Y 9. ANEXOS**
-    """)
-
-# ==========================================
-# MÓDULO 6: EXPORTACIÓN CAD Y REPORTES
-# ==========================================
 elif modulo_seleccionado == "💾 6. Exportación CAD & Reportes":
     st.subheader("💾 Módulo 6: Exportación de Expediente Ejecutivo y Reportes")
     csv_bytes = df_calc.to_csv(index=False).encode('utf-8')
-    st.download_button(
-        label="⬇️ Descargar Reporte Completo de Resultados (CSV)",
-        data=csv_bytes,
-        file_name=f'Reporte_EMS_{limite_red:.0f}kW_{capacidad_bess:.0f}kWh.csv',
-        mime='text/csv'
-    )
+    dxf_content = generate_unifilar_dxf(limite_red, capacidad_bess, potencia_pv, s_trafo)
+    
+    col_d1, col_d2 = st.columns(2)
+    with col_d1:
+        st.download_button(
+            label="⬇️ Descargar Reporte de Resultados (CSV)",
+            data=csv_bytes,
+            file_name=f'Reporte_EMS_{limite_red:.0f}kW.csv',
+            mime='text/csv'
+        )
+    with col_d2:
+        st.download_button(
+            label="📐 Descargar Plano CAD Unifilar (.DXF / DWG)",
+            data=dxf_content.encode('utf-8'),
+            file_name=f'Plano_Unifilar_EMS_{limite_red:.0f}kW.dxf',
+            mime='application/dxf'
+        )
