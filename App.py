@@ -6,9 +6,6 @@ from docx import Document
 from docx.shared import Pt, Inches
 from docx.enum.text import WD_ALIGN_PARAGRAPH
 from docx.enum.table import WD_TABLE_ALIGNMENT
-from docx.oxml import parse_xml
-from docx.oxml.ns import nsdecls
-import time
 
 # ==========================================
 # 1. CONFIGURACIÓN DE PÁGINA
@@ -16,7 +13,7 @@ import time
 st.set_page_config(page_title="EMS Control Center - UPS", layout="wide", page_icon="⚡", initial_sidebar_state="expanded")
 
 # ==========================================
-# 2. ESTILOS CSS AVANZADOS (SCADA DARK THEME)
+# 2. ESTILOS CSS AVANZADOS (SCADA DARK THEME & TEXT FIX)
 # ==========================================
 st.markdown("""
 <style>
@@ -26,6 +23,21 @@ st.markdown("""
     header { visibility: hidden; }
     footer { visibility: hidden; }
     
+    /* ---------------------------------------------------
+       CORRECCIÓN DE VISIBILIDAD DE TEXTOS (CONTRASTE)
+       Fuerza el texto blanco/claro sobre nuestro fondo oscuro
+       incluso si Streamlit está en Modo Claro.
+       --------------------------------------------------- */
+    section[data-testid="stSidebar"] p, 
+    section[data-testid="stSidebar"] span, 
+    section[data-testid="stSidebar"] label,
+    section[data-testid="stSidebar"] div {
+        color: #f8fafc !important;
+    }
+    .stMarkdown p, .stText p, .stRadio p, .stSlider p, .stSlider label {
+        color: #e2e8f0 !important;
+    }
+    
     /* Cabecera del Centro de Control */
     .scada-header {
         display: flex; justify-content: space-between; align-items: center; 
@@ -33,11 +45,11 @@ st.markdown("""
         padding: 15px 25px; border-bottom: 2px solid #0ea5e9; border-radius: 8px; margin-bottom: 20px;
         box-shadow: 0 4px 15px rgba(0, 0, 0, 0.5);
     }
-    .scada-title { margin: 0; color: #f8fafc; font-size: 24px; font-weight: 800; letter-spacing: 1px; }
-    .scada-subtitle { color: #94a3b8; font-size: 13px; font-weight: 500; text-transform: uppercase; letter-spacing: 2px; }
+    .scada-title { margin: 0; color: #f8fafc !important; font-size: 24px; font-weight: 800; letter-spacing: 1px; }
+    .scada-subtitle { color: #94a3b8 !important; font-size: 13px; font-weight: 500; text-transform: uppercase; letter-spacing: 2px; }
     
     /* Animación de estado ONLINE */
-    .blinking { animation: blinker 1.5s cubic-bezier(.5, 0, 1, 1) infinite alternate; color: #10b981; font-weight: 700; font-size: 14px; text-shadow: 0 0 8px #10b981; }
+    .blinking { animation: blinker 1.5s cubic-bezier(.5, 0, 1, 1) infinite alternate; color: #10b981 !important; font-weight: 700; font-size: 14px; text-shadow: 0 0 8px #10b981; }
     @keyframes blinker { 50% { opacity: 0.3; } }
     
     /* Tarjetas de Métricas SCADA */
@@ -46,22 +58,22 @@ st.markdown("""
         border-radius: 6px; padding: 16px; box-shadow: 0 4px 6px rgba(0,0,0,0.3); transition: transform 0.2s;
     }
     .scada-card:hover { transform: translateY(-2px); border-color: #0ea5e9; }
-    .scada-label { font-size: 12px; color: #94a3b8; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px; }
-    .scada-value { font-size: 28px; font-weight: 700; color: #38bdf8; text-shadow: 0 0 10px rgba(56, 189, 248, 0.2); }
-    .scada-unit { font-size: 14px; color: #cbd5e1; font-weight: 500; margin-left: 4px; }
-    .scada-sub { font-size: 12px; margin-top: 8px; font-weight: 500; display: flex; justify-content: space-between; }
+    .scada-label { font-size: 12px; color: #94a3b8 !important; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px; }
+    .scada-value { font-size: 28px; font-weight: 700; color: #38bdf8 !important; text-shadow: 0 0 10px rgba(56, 189, 248, 0.2); margin:0; padding:0;}
+    .scada-unit { font-size: 14px; color: #cbd5e1 !important; font-weight: 500; margin-left: 4px; }
+    .scada-sub { font-size: 12px; margin-top: 8px; font-weight: 500; display: flex; justify-content: space-between; color: #94a3b8 !important;}
     
-    /* Estados de colores */
-    .c-normal { color: #10b981; }
-    .c-alert { color: #f59e0b; }
-    .c-critical { color: #ef4444; }
+    /* Estados de colores forzados para las tarjetas */
+    .c-normal { color: #10b981 !important; }
+    .c-alert { color: #f59e0b !important; }
+    .c-critical { color: #ef4444 !important; }
     
     /* Botones de Streamlit personalizados */
     div.stButton > button {
         background: linear-gradient(180deg, #334155 0%, #1e293b 100%);
-        color: #38bdf8; border: 1px solid #0ea5e9; border-radius: 4px; font-weight: 600; transition: all 0.3s;
+        color: #38bdf8 !important; border: 1px solid #0ea5e9; border-radius: 4px; font-weight: 600; transition: all 0.3s;
     }
-    div.stButton > button:hover { background: #0ea5e9; color: #ffffff; box-shadow: 0 0 10px #0ea5e9; border: 1px solid #38bdf8; }
+    div.stButton > button:hover { background: #0ea5e9; color: #ffffff !important; box-shadow: 0 0 10px #0ea5e9; border: 1px solid #38bdf8; }
     
     /* Barra lateral */
     section[data-testid="stSidebar"] { background-color: #0f172a; border-right: 1px solid #1e293b; }
@@ -166,14 +178,13 @@ menu = st.sidebar.radio("Seleccione Módulo:", [
 # VISTA 1: DASHBOARD PRINCIPAL
 # ------------------------------------------
 if menu == "🏠 Dashboard Principal":
-    # Fila de 4 Tarjetas KPI
     col1, col2, col3, col4 = st.columns(4)
     with col1:
         st.markdown(f"""
         <div class="scada-card">
             <div class="scada-label">DEMANDA RED</div>
             <div class="scada-value">{demanda_recortada:.1f} <span class="scada-unit">kW</span></div>
-            <div class="scada-sub"><span style="color:#94a3b8;">Original: {demanda_max:.1f} kW</span> <span class="c-normal">▼ {reduccion_pico:.1f} kW</span></div>
+            <div class="scada-sub"><span>Original: {demanda_max:.1f} kW</span> <span class="c-normal">▼ {reduccion_pico:.1f} kW</span></div>
         </div>
         """, unsafe_allow_html=True)
     with col2:
@@ -181,7 +192,7 @@ if menu == "🏠 Dashboard Principal":
         <div class="scada-card">
             <div class="scada-label">ALMACENAMIENTO BESS</div>
             <div class="scada-value">{cfg['c_bat']:.0f} <span class="scada-unit">kWh</span></div>
-            <div class="scada-sub"><span style="color:#94a3b8;">Tecnología: LiFePO4</span> <span class="c-normal">SOC ~{soc_actual_estado:.0f}%</span></div>
+            <div class="scada-sub"><span>Tecnología: LiFePO4</span> <span class="c-normal">SOC ~{soc_actual_estado:.0f}%</span></div>
         </div>
         """, unsafe_allow_html=True)
     with col3:
@@ -189,7 +200,7 @@ if menu == "🏠 Dashboard Principal":
         <div class="scada-card">
             <div class="scada-label">GENERACIÓN SOLAR</div>
             <div class="scada-value">{cfg['p_pv']:.0f} <span class="scada-unit">kWp</span></div>
-            <div class="scada-sub"><span style="color:#94a3b8;">Inversor: {inv_req:.1f} kVA</span> <span class="c-normal">● NORMAL</span></div>
+            <div class="scada-sub"><span>Inversor: {inv_req:.1f} kVA</span> <span class="c-normal">● NORMAL</span></div>
         </div>
         """, unsafe_allow_html=True)
     with col4:
@@ -199,11 +210,10 @@ if menu == "🏠 Dashboard Principal":
         <div class="scada-card">
             <div class="scada-label">TRAFO {cfg['s_trafo']:.0f} kVA</div>
             <div class="scada-value" style="color: {'#38bdf8' if carg_con < 85 else '#f59e0b'};">{carg_con:.1f} <span class="scada-unit">%</span></div>
-            <div class="scada-sub"><span style="color:#94a3b8;">Cargabilidad</span> <span class="{clase_trafo}">● {estado_trafo}</span></div>
+            <div class="scada-sub"><span>Cargabilidad</span> <span class="{clase_trafo}">● {estado_trafo}</span></div>
         </div>
         """, unsafe_allow_html=True)
 
-    # Gráfico Principal
     st.markdown("<h4 style='color: #e2e8f0; margin-top:20px;'>Monitoreo de Potencia en Tiempo de Simulación</h4>", unsafe_allow_html=True)
     fig_main = go.Figure()
     fig_main.add_trace(go.Scatter(x=df_ems['Hora'], y=df_ems['P_Carga'], name='Demanda Bruta', line=dict(color='#3b82f6', width=2)))
@@ -218,7 +228,6 @@ if menu == "🏠 Dashboard Principal":
     )
     st.plotly_chart(fig_main, use_container_width=True)
 
-    # Botones Interactivos
     col_b1, col_b2, col_b3, col_b4 = st.columns(4)
     if col_b1.button("▶ EJECUTAR SIMULACIÓN", use_container_width=True):
         st.session_state.config['sim_run'] += 1
@@ -253,16 +262,12 @@ elif menu == "📐 Diagrama Unifilar SCADA":
     st.markdown("<h3 style='color: #0ea5e9;'>Diagrama Unifilar Jerárquico (Interfaz SCADA)</h3>", unsafe_allow_html=True)
     
     c_left, c_right = st.columns([1, 3])
-    
     with c_left:
         st.markdown("<div style='background:#1e293b; padding:15px; border-radius:8px; border:1px solid #334155;'>", unsafe_allow_html=True)
         st.markdown("<h4 style='color:#f8fafc; margin-top:0;'>Equipos</h4>", unsafe_allow_html=True)
         eq_seleccionado = st.radio("Seleccionar para ver detalles:", ["Transformador", "BESS", "Inversor", "Arreglo PV", "Red CNEL", "TGBT", "Cargas Bloque D"], label_visibility="collapsed")
-        st.markdown("</div>", unsafe_allow_html=True)
+        st.markdown("</div><br>", unsafe_allow_html=True)
         
-        st.markdown("<br>", unsafe_allow_html=True)
-        
-        # Tarjeta de Detalles del Equipo Seleccionado
         if eq_seleccionado == "Transformador":
             st.markdown(f"""<div class="scada-card"><h4 style="color:#0ea5e9; margin:0 0 10px 0;">⚡ TRANSFORMADOR</h4>
             <div style="font-size:14px; line-height:1.8;"><b>Capacidad:</b> {cfg['s_trafo']} kVA<br><b>Tensión:</b> 69 kV / {cfg['v_nom']/1000} kV<br><b>Icc Simétrica:</b> {(icc_simetrica/1000):.2f} kA<br><b>Carga Actual:</b> {carg_con:.1f} %<br><br><span class="c-normal">● ESTADO: NORMAL</span></div></div>""", unsafe_allow_html=True)
@@ -286,48 +291,29 @@ elif menu == "📐 Diagrama Unifilar SCADA":
             <div style="font-size:14px; line-height:1.8;"><b>Demanda Pico:</b> {demanda_max:.1f} kW<br><b>Demanda Base:</b> 36.0 kW<br><b>Flicker Plt:</b> 1.12<br><br><span class="c-alert">● ESTADO: ALERTA P.Q.</span></div></div>""", unsafe_allow_html=True)
 
     with c_right:
-        # Gráfica Plotly Dark (SCADA Style)
         fig_sld = go.Figure()
         fig_sld.update_xaxes(visible=False); fig_sld.update_yaxes(visible=False)
+        l_color = '#00f0ff'; t_color = '#f8fafc'
         
-        # Color base según el modo dark
-        l_color = '#00f0ff' # Cyan neon
-        t_color = '#f8fafc'
-        
-        # Línea MT
         fig_sld.add_trace(go.Scatter(x=[0, 0], y=[200, 160], mode='lines', line=dict(color=l_color, width=2), showlegend=False))
         fig_sld.add_annotation(x=0, y=205, text="RED CNEL 13.8 kV", showarrow=False, font=dict(size=12, color=t_color))
-        
-        # Trafo
         fig_sld.add_shape(type="circle", x0=-10, y0=120, x1=10, y1=140, line_color=l_color, line_width=2)
         fig_sld.add_shape(type="circle", x0=-10, y0=105, x1=10, y1=125, line_color=l_color, line_width=2)
         fig_sld.add_annotation(x=40, y=122, text=f"TRAFO {cfg['s_trafo']} kVA", showarrow=False, font=dict(size=11, color=t_color))
-        
-        # Línea a TGBT
         fig_sld.add_trace(go.Scatter(x=[0, 0], y=[105, 80], mode='lines', line=dict(color=l_color, width=2), showlegend=False))
         fig_sld.add_shape(type="rect", x0=-8, y0=65, x1=8, y1=80, line_color=l_color, line_width=2)
         fig_sld.add_annotation(x=35, y=72, text="ITM 50kA", showarrow=False, font=dict(size=10, color=t_color))
-        
-        # Bus TGBT
         fig_sld.add_trace(go.Scatter(x=[0, 0], y=[65, 50], mode='lines', line=dict(color=l_color, width=2), showlegend=False))
         fig_sld.add_trace(go.Scatter(x=[-80, 80], y=[50, 50], mode='lines', line=dict(color=l_color, width=4), showlegend=False))
         fig_sld.add_annotation(x=0, y=55, text=f"BUS TGBT {cfg['v_nom']}V", showarrow=False, font=dict(size=12, color=t_color))
-        
-        # Rama Cargas
         fig_sld.add_trace(go.Scatter(x=[-50, -50], y=[50, 10], mode='lines', line=dict(color='#ef4444', width=2), showlegend=False))
         fig_sld.add_shape(type="rect", x0=-70, y0=-10, x1=-30, y1=10, line_color="#ef4444", line_width=2)
         fig_sld.add_annotation(x=-50, y=0, text="CARGAS", showarrow=False, font=dict(size=11, color='#ef4444'))
-        
-        # Rama Inversor
         fig_sld.add_trace(go.Scatter(x=[50, 50], y=[50, 10], mode='lines', line=dict(color='#a855f7', width=2), showlegend=False))
         fig_sld.add_shape(type="rect", x0=25, y0=-10, x1=75, y1=10, line_color="#a855f7", line_width=2)
         fig_sld.add_annotation(x=50, y=0, text="INVERSOR", showarrow=False, font=dict(size=11, color='#a855f7'))
-        
-        # DC Lines
         fig_sld.add_trace(go.Scatter(x=[35, 35], y=[-10, -30], mode='lines', line=dict(color='#f59e0b', width=2), showlegend=False))
         fig_sld.add_trace(go.Scatter(x=[65, 65], y=[-10, -30], mode='lines', line=dict(color='#10b981', width=2), showlegend=False))
-        
-        # PV & BESS
         fig_sld.add_shape(type="rect", x0=20, y0=-50, x1=50, y1=-30, line_color="#f59e0b", line_width=2)
         fig_sld.add_annotation(x=35, y=-40, text="PV", showarrow=False, font=dict(size=11, color='#f59e0b'))
         fig_sld.add_shape(type="rect", x0=55, y0=-50, x1=85, y1=-30, line_color="#10b981", line_width=2)
@@ -337,11 +323,11 @@ elif menu == "📐 Diagrama Unifilar SCADA":
         st.plotly_chart(fig_sld, use_container_width=True)
 
 # ------------------------------------------
-# VISTA 4: MEMORIA TÉCNICA (DOCX)
+# VISTA 4: MEMORIA TÉCNICA
 # ------------------------------------------
 elif menu == "📄 Memoria Técnica":
     st.markdown("<h3 style='color: #0ea5e9;'>Generación de Memoria Técnica Oficial</h3>", unsafe_allow_html=True)
-    st.markdown("El documento se generará en formato **Microsoft Word (.docx)** con la estructura oficial del proyecto, índices, capítulos normativos y tablas de especificaciones actualizadas con los parámetros actuales.")
+    st.markdown("El documento se generará en formato **Microsoft Word (.docx)** con la estructura oficial del proyecto, basándose estrictamente en las plantillas de ingeniería de los ejemplos suministrados (CNEL / GPS Group).")
     
     def generar_docx():
         doc = Document()
@@ -356,7 +342,7 @@ elif menu == "📄 Memoria Técnica":
         t_meta.style = 'Table Grid'
         meta_data = [
             ("Departamento:", "Ingeniería y Viabilidad Técnica"),
-            ("Documento:", f"Memoria Técnica EMS - {st.session_state.config.get('ubicacion_app', 'UPS Bloque D')}"),
+            ("Documento:", f"Memoria Técnica EMS - UPS Bloque D"),
             ("Código del Documento:", "GPS-EMS-MTC-001"),
             ("Revisión / Fecha:", "Rev. C / 04/09/2026")
         ]
@@ -365,15 +351,80 @@ elif menu == "📄 Memoria Técnica":
             t_meta.cell(i, 1).text = v
 
         doc.add_paragraph()
-        doc.add_heading('1. OBJETIVOS', level=1)
-        doc.add_paragraph(f"Diseñar y validar el Sistema EMS orientado al recorte de picos de demanda a {cfg['p_lim']:.0f} kW utilizando un BESS de {cfg['c_bat']:.0f} kWh y PV de {cfg['p_pv']:.0f} kWp.")
         
-        doc.add_heading('2. RESULTADOS TÉCNICOS', level=1)
-        doc.add_paragraph(f"• Demanda Pico Original: {demanda_max:.1f} kW")
-        doc.add_paragraph(f"• Demanda Recortada: {demanda_recortada:.1f} kW")
-        doc.add_paragraph(f"• Reducción de Pico: {reduccion_pico:.1f} kW ({(reduccion_pico/demanda_max)*100.0:.1f}%)")
-        doc.add_paragraph(f"• Corriente de Cortocircuito Icc: {icc_simetrica/1000.0:.2f} kA (Protección requerida 50 kA AIC)")
-        doc.add_paragraph(f"• Cargabilidad del Transformador: Reducida del {carg_sin:.1f}% al {carg_con:.1f}%")
+        # Historial de Revisiones
+        doc.add_heading('Historial de revisiones', level=2)
+        t_rev = doc.add_table(rows=2, cols=4)
+        t_rev.style = 'Table Grid'
+        headers = ["N° de Revisión", "Fecha", "Páginas Revisadas", "Motivo de Revisión"]
+        for i, h in enumerate(headers):
+            t_rev.cell(0, i).text = h; t_rev.cell(0, i).paragraphs[0].runs[0].bold = True
+        t_rev.cell(1, 0).text = "01"
+        t_rev.cell(1, 1).text = "04/09/2026"
+        t_rev.cell(1, 2).text = "Todo el documento"
+        t_rev.cell(1, 3).text = "Revisión General y Emisión"
+        doc.add_paragraph()
+        
+        # Documentos Entregados
+        doc.add_heading('Documentos Entregados', level=2)
+        t_doc = doc.add_table(rows=2, cols=2)
+        t_doc.style = 'Table Grid'
+        t_doc.cell(0,0).text = "Documento:"; t_doc.cell(0,0).paragraphs[0].runs[0].bold = True
+        t_doc.cell(0,1).text = "Código:"; t_doc.cell(0,1).paragraphs[0].runs[0].bold = True
+        t_doc.cell(1,0).text = "Plano Unifilar y Memoria de Cálculo"
+        t_doc.cell(1,1).text = "GPS-EMS-DUF-001"
+        doc.add_page_break()
+
+        # Índice
+        doc.add_heading('ÍNDICE DE CONTENIDO', level=1)
+        indice = ["1. OBJETIVOS", "2. INTRODUCCIÓN", "3. UBICACIÓN", "4. DESARROLLO GENERAL", "  4.1 SISTEMA EXISTENTE", "  4.2 SISTEMA PROYECTADO", "5. ESPECIFICACIONES TÉCNICAS", "6. CÁLCULO DE LA DEMANDA Y ESTUDIO ELÉCTRICO", "7. LISTA DE MATERIALES", "8. CONCLUSIONES", "9. ANEXOS"]
+        for item in indice: doc.add_paragraph(item)
+        doc.add_page_break()
+
+        doc.add_heading('1. OBJETIVOS', level=1)
+        doc.add_heading('1.1 Objetivo General:', level=2)
+        doc.add_paragraph("Incorporación de nuevas tecnologías y mejora de la infraestructura con el objetivo de garantizar un suministro eléctrico competitivo, seguro y eficiente mediante la implementación de un Sistema Inteligente de Gestión de Energía (EMS).")
+        doc.add_heading('1.2 Objetivos Específicos:', level=2)
+        doc.add_paragraph(f"Electrificación y recorte de demanda pico (Peak Shaving) de {demanda_max:.1f} kW a {cfg['p_lim']:.1f} kW, garantizando el cumplimiento de las normativas de interconexión (IEEE 2030.7, 1547).")
+
+        doc.add_heading('2. INTRODUCCIÓN', level=1)
+        doc.add_paragraph("La implementación del proyecto apuesta por el uso de tecnologías híbridas (Generación fotovoltaica y almacenamiento BESS), mitigando los picos de consumo y mejorando el perfil de tensión local.")
+
+        doc.add_heading('3. UBICACIÓN', level=1)
+        doc.add_paragraph(f"El centro de carga principal está ubicado en el Campus Centenario UPS (Guayaquil, Ecuador).")
+
+        doc.add_heading('4. DESARROLLO GENERAL', level=1)
+        doc.add_heading('4.1 SISTEMA EXISTENTE', level=2)
+        doc.add_paragraph(f"Actualmente el centro de carga opera con un transformador de {cfg['s_trafo']:.0f} kVA a {cfg['v_nom']}V, alcanzando una demanda máxima registrada de {demanda_max:.1f} kW, con una cargabilidad térmica original del {carg_sin:.1f}%.")
+        
+        doc.add_heading('4.2 SISTEMA PROYECTADO', level=2)
+        doc.add_paragraph(f"Se proyecta la integración de un banco de baterías de {cfg['c_bat']:.0f} kWh y un sistema solar de {cfg['p_pv']:.0f} kWp, acoplados a un inversor de {inv_req:.1f} kVA. El algoritmo EMS limitará la potencia tomada de la red a {cfg['p_lim']:.1f} kW, mejorando la cargabilidad del transformador al {carg_con:.1f}%.")
+
+        doc.add_heading('5. ESPECIFICACIONES TÉCNICAS', level=1)
+        doc.add_paragraph(f"• INVERSOR MULTIMODO: Potencia Nominal de {inv_req:.1f} kVA, Factor de Potencia mínimo regulable a 0.95 (IEEE 1547).")
+        doc.add_paragraph(f"• BANCO BESS: Capacidad Nominal de {cfg['c_bat']:.0f} kWh en tecnología LiFePO4, con DoD configurado al 80% (Reserva de seguridad SOC_min de {soc_min:.1f} kWh).")
+        
+        doc.add_heading('6. CÁLCULO DE LA DEMANDA Y ESTUDIO TÉCNICO', level=1)
+        doc.add_paragraph(f"Para el bus principal en {cfg['v_nom']}V, la corriente nominal del transformador es de {i_nom:.1f} A. Considerando una impedancia de Z=5.75%, la corriente de falla simétrica es Icc = {icc_simetrica/1000.0:.2f} kA. Se validó la capacidad interruptiva requerida del disyuntor principal a 50 kA.")
+
+        doc.add_heading('7. LISTA DE MATERIALES', level=1)
+        t_mat = doc.add_table(rows=5, cols=4)
+        t_mat.style = 'Table Grid'
+        mat_headers = ["ÍTEM", "DESCRIPCIÓN", "UNIDAD", "CANTIDAD"]
+        for i, h in enumerate(mat_headers):
+            t_mat.cell(0, i).text = h; t_mat.cell(0, i).paragraphs[0].runs[0].bold = True
+        
+        materiales = [
+            ("1", f"Sistema Almacenamiento BESS {cfg['c_bat']:.0f} kWh LiFePO4", "GLB", "1"),
+            ("2", f"Inversor Híbrido Multimodo {inv_req:.1f} kVA", "UN", "1"),
+            ("3", f"Sistema Fotovoltaico {cfg['p_pv']:.0f} kWp", "GLB", "1"),
+            ("4", "Controlador PLC Microgrid EMS", "UN", "1")
+        ]
+        for r_idx, (i, d, u, c) in enumerate(materiales, start=1):
+            t_mat.cell(r_idx, 0).text = i; t_mat.cell(r_idx, 1).text = d; t_mat.cell(r_idx, 2).text = u; t_mat.cell(r_idx, 3).text = c
+
+        doc.add_heading('8. CONCLUSIONES', level=1)
+        doc.add_paragraph(f"El sistema diseñado logra un aplanamiento neto de demanda de {reduccion_pico:.1f} kW, reduciendo el estrés térmico en el transformador de {cfg['s_trafo']:.0f} kVA y garantizando el cumplimiento normativo.")
 
         target = io.BytesIO()
         doc.save(target)
@@ -382,42 +433,58 @@ elif menu == "📄 Memoria Técnica":
     col1, col2 = st.columns([1, 2])
     with col1:
         st.download_button(
-            label="📄 GENERAR Y DESCARGAR MEMORIA (.DOCX)",
+            label="📄 DESCARGAR MEMORIA (.DOCX)",
             data=generar_docx(),
             file_name='GPS_Memoria_Tecnica_EMS.docx',
             mime='application/vnd.openxmlformats-officedocument.wordprocessingml.document',
             use_container_width=True
         )
     with col2:
-        st.markdown("<div style='padding:10px; color:#10b981; font-weight:bold;'>✔ Motor de generación de documentos en línea y listo.</div>", unsafe_allow_html=True)
+        st.markdown("<div style='padding:10px; color:#10b981; font-weight:bold;'>✔ Documento Word generado con estructura completa idéntico a las plantillas de ingeniería de GPS Group.</div>", unsafe_allow_html=True)
 
 # ------------------------------------------
-# VISTA 5: EXPORTACIONES (CAD & DATOS)
+# VISTA 5: EXPORTACIONES
 # ------------------------------------------
 elif menu == "📦 Exportaciones":
     st.markdown("<h3 style='color: #0ea5e9;'>Exportación de Planos y Bases de Datos</h3>", unsafe_allow_html=True)
     
     def generate_dxf():
         lines = ["0", "SECTION", "2", "HEADER", "0", "ENDSEC", "0", "SECTION", "2", "TABLES", "0", "ENDSEC", "0", "SECTION", "2", "BLOCKS", "0", "ENDSEC", "0", "SECTION", "2", "ENTITIES"]
-        lines.extend(["0", "TEXT", "8", "TEXTOS", "10", "0.0", "20", "200.0", "30", "0.0", "40", "5.0", "1", "DIAGRAMA UNIFILAR EMS"])
+        def add_line(layer, x1, y1, x2, y2):
+            lines.extend(["0", "LINE", "8", layer, "10", f"{x1:.2f}", "20", f"{y1:.2f}", "30", "0.0", "11", f"{x2:.2f}", "21", f"{y2:.2f}", "31", "0.0"])
+        def add_circle(layer, cx, cy, r):
+            lines.extend(["0", "CIRCLE", "8", layer, "10", f"{cx:.2f}", "20", f"{cy:.2f}", "30", "0.0", "40", f"{r:.2f}"])
+        def add_text(layer, x, y, text, height=3.0):
+            lines.extend(["0", "TEXT", "8", layer, "10", f"{x:.2f}", "20", f"{y:.2f}", "30", "0.0", "40", f"{height:.2f}", "1", str(text)])
+        def add_box(layer, x1, y1, x2, y2):
+            add_line(layer, x1, y1, x2, y1); add_line(layer, x2, y1, x2, y2); add_line(layer, x2, y2, x1, y2); add_line(layer, x1, y2, x1, y1)
+
+        add_text("TEXTOS", -80, 220, "PROYECTO: EMS BLOQUE D", 5.0)
+        add_line("RED_MT", 0, 200, 0, 160)
+        add_text("TEXTOS", -45, 195, "ACOMETIDA RED PRINCIPAL CNEL - 69 kV / 13.8 kV", 3.5)
+        add_circle("EQUIPOS", 0, 160, 2.5)
+        add_circle("SIMBOLOS_TRAFO", 0, 128, 12); add_circle("SIMBOLOS_TRAFO", 0, 112, 12)
+        add_box("CUADROS_INFO", 25, 95, 105, 145)
+        add_text("TEXTOS", 28, 137, f"TRANSFORMADOR PEDESTAL {cfg['s_trafo']:.0f} kVA", 3.5)
+        add_line("RED_BT", 0, 100, 0, 80)
+        add_line("BUS_PRINCIPAL", -110, 50, 110, 50)
+        
         lines.extend(["0", "ENDSEC", "0", "EOF"])
         return "\n".join(lines)
 
     c1, c2 = st.columns(2)
     with c1:
-        st.markdown("<div class='scada-card'><h4>Exportar Plano Vectorial</h4><p style='color:#94a3b8; font-size:13px;'>Genera el diagrama unifilar en formato DXF estructurado en capas, compatible con AutoCAD y ETAP.</p></div>", unsafe_allow_html=True)
+        st.markdown("<div class='scada-card'><h4 style='color:#f8fafc;'>Plano Vectorial</h4><p style='color:#94a3b8; font-size:13px;'>Diagrama unifilar en formato DXF (AutoCAD/ETAP).</p></div>", unsafe_allow_html=True)
         st.download_button("📐 DESCARGAR PLANO CAD (.DXF)", generate_dxf().encode('utf-8'), 'Plano_Unifilar_EMS.dxf', 'application/dxf', use_container_width=True)
     with c2:
-        st.markdown("<div class='scada-card'><h4>Exportar Datos de Simulación</h4><p style='color:#94a3b8; font-size:13px;'>Descarga la tabla de balance horario (24h) con las curvas de demanda, BESS, PV y SOC en CSV.</p></div>", unsafe_allow_html=True)
+        st.markdown("<div class='scada-card'><h4 style='color:#f8fafc;'>Datos Simulación</h4><p style='color:#94a3b8; font-size:13px;'>Tabla de balance horario 24h en CSV.</p></div>", unsafe_allow_html=True)
         st.download_button("📊 DESCARGAR RESULTADOS (.CSV)", df_ems.to_csv(index=False).encode('utf-8'), 'Resultados_EMS.csv', 'text/csv', use_container_width=True)
 
 # ------------------------------------------
 # VISTA 6: CONFIGURACIÓN
 # ------------------------------------------
 elif menu == "⚙️ Configuración":
-    st.markdown("<h3 style='color: #0ea5e9;'>Configuración Avanzada del Sistema</h3>", unsafe_allow_html=True)
-    st.markdown("Los parámetros ajustados aquí afectarán todas las simulaciones, gráficas y documentos exportados.")
-    
+    st.markdown("<h3 style='color: #0ea5e9;'>Configuración Avanzada</h3>", unsafe_allow_html=True)
     st.markdown("<div class='scada-card'>", unsafe_allow_html=True)
     c1, c2 = st.columns(2)
     with c1:
