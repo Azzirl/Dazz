@@ -38,7 +38,7 @@ modulos = [
 modulo_seleccionado = st.radio("Seleccione el Módulo de Trabajo:", modulos, horizontal=True)
 st.markdown("---")
 
-# ALGORITMO EMS DETERMINÍSTICO DE CÁLCULO
+# ALGORITMO EMS DETERMINÍSTICO DE CÁLCULO (Ejecución Global)
 df_calc = st.session_state.df_base.copy()
 df_calc['P_Red_Teorica'] = df_calc['P_Carga_(kW)'] - df_calc['P_PV_(kW)']
 
@@ -72,9 +72,10 @@ df_calc['P_Red_Real_(kW)'] = p_red_real_lista
 df_calc['Energia_Almacenada_(kWh)'] = e_bat_lista
 df_calc['SOC_(%)'] = soc_lista
 
-# VARIABLES GLOBALES DE MÉTRICAS (Para acceso universal por cualquier módulo)
-demanda_max = df_calc['P_Carga_(kW)'].max()
-demanda_recortada = df_calc['P_Red_Real_(kW)'].max()
+# VARIABLES GLOBALES ACCESIBLES PARA TODOS LOS MÓDULOS
+demanda_max = float(df_calc['P_Carga_(kW)'].max())
+demanda_recortada = float(df_calc['P_Red_Real_(kW)'].max())
+reduccion_pico = demanda_max - demanda_recortada
 
 # ==========================================
 # MÓDULO 1: DIAGRAMA UNIFILAR JERÁRQUICO
@@ -128,13 +129,13 @@ elif modulo_seleccionado == "⚡ 2. Cálculo Normativo (IEEE 2030 / 1547)":
 elif modulo_seleccionado == "🏢 3. Distribución MT/BT & Concentración":
     st.subheader("🏢 Módulo 3: Modelado de Transformador Pedestal y Concentración de Cargas")
     
-    cargabilidad_sin = (demanda_max / 1000.0) * 100
-    cargabilidad_con = (demanda_recortada / 1000.0) * 100
+    cargabilidad_sin = (demanda_max / 1000.0) * 100.0
+    cargabilidad_con = (demanda_recortada / 1000.0) * 100.0
     
     c1, c2, c3 = st.columns(3)
     c1.metric("Capacidad Trafo Bloque D", "1000 kVA")
     c2.metric("Cargabilidad Original", f"{cargabilidad_sin:.1f}%", f"Pico: {demanda_max:.1f} kW")
-    c3.metric("Cargabilidad con EMS", f"{cargabilidad_con:.1f}%", f"Pico: {demanda_recortada:.1f} kW")
+    c3.metric("Cargabilidad con EMS", f"{cargabilidad_con:.1f}%", f"Pico: {demanda_recortada:.1f} kW", delta_color="normal")
 
     st.success("✔ El transformador de 1000 kVA opera holgadamente dentro del rango térmico de seguridad.")
     st.info("El sistema FV de 150 kWp y BESS de 250 kWh atenúa los picos de demanda y reduce el estrés térmico en el devanado secundario.")
@@ -146,9 +147,9 @@ elif modulo_seleccionado == "💥 4. Estudio de Cortocircuito (AIC)":
     st.subheader("💥 Módulo 4: Estudio de Cortocircuito y Capacidad Interruptiva (AIC)")
     st.markdown("Cálculo de corriente de falla simétrica e impedancia equivalente en el tablero principal de 220 V.")
     
-    v_linea = 220.0 # Voltios
-    s_trafo = 1000.0 # kVA
-    z_percent = 5.75 # Impedancia típica
+    v_linea = 220.0
+    s_trafo = 1000.0
+    z_percent = 5.75
     
     i_nom = (s_trafo * 1000.0) / (1.73205 * v_linea)
     icc_simetrica = i_nom / (z_percent / 100.0)
@@ -166,24 +167,25 @@ elif modulo_seleccionado == "💥 4. Estudio de Cortocircuito (AIC)":
 elif modulo_seleccionado == "📄 5. Memoria Técnico-Descriptiva":
     st.subheader("📄 Módulo 5: Memoria Técnico-Descriptiva para Tesis de Maestría")
     
-    resumen_texto = f"""MEMORIA TÉCNICO-DESCRIPTIVA DE INGENIERÍA
-PROYECTO: Sistema de Gestión Inteligente de Energía (EMS) para el Bloque D - UPS.
-
-1. ALCANCE Y OBJETIVOS:
-   Implementación de un algoritmo EMS determinístico para recortar el pico de demanda de {demanda_max:.1f} kW a {limite_red:.1f} kW 
-   mediante la integración de un generador fotovoltaico de {potencia_pv:.1f} kWp y un sistema de almacenamiento BESS de {capacidad_bess:.1f} kWh.
-   
-2. MARCO NORMATIVO INTERNACIONAL APLICADO:
-   - IEEE Std 2030.2-2015 / IEEE Std 1547.9-2022: Criterios de descarga (DoD 80%) y reserva mínima de seguridad (SOC min = {soc_min:.1f} kWh).
-   - IEEE Std 2030.7-2017: Reglas del controlador de microrred para el despacho dinámico de potencia activa.
-   - IEEE Std 1547-2018: Inversor dimensionado a {potencia_pv / 0.95:.1f} kVA para soporte de potencia reactiva e inyección a la red.
-   
-3. RESULTADOS OPERATIVOS:
-   - Potencia pico original: {demanda_max:.1f} kW
-   - Potencia pico gestionada: {demanda_recortada:.1f} kW
-   - Reducción neta de demanda de red: {demanda_max - demanda_recortada:.1f} kW
-"""
-    st.text_area("Expediente Ejecutivo Generado:", resumen_texto, height=320)
+    resumen_texto = f"""
+    MEMORIA TÉCNICO-DESCRIPTIVA DE INGENIERÍA
+    PROYECTO: Sistema de Gestión Inteligente de Energía (EMS) para el Bloque D - UPS.
+    
+    1. ALCANCE Y OBJETIVOS:
+       Implementación de un algoritmo EMS determinístico para recortar el pico de demanda de {demanda_max:.1f} kW a {limite_red:.1f} kW 
+       mediante la integración de un generador fotovoltaico de {potencia_pv:.1f} kWp y un sistema de almacenamiento BESS de {capacidad_bess:.1f} kWh.
+       
+    2. MARCO NORMATIVO INTERNACIONAL APLICADO:
+       - IEEE Std 2030.2-2015 / IEEE Std 1547.9-2022: Criterios de descarga (DoD 80%) y reserva mínima de seguridad (SOC min = {soc_min:.1f} kWh).
+       - IEEE Std 2030.7-2017: Reglas del controlador de microrred para el despacho dinámico de potencia activa.
+       - IEEE Std 1547-2018: Inversor dimensionado a {potencia_pv / 0.95:.1f} kVA para soporte de potencia reactiva e inyección a la red.
+       
+    3. RESULTADOS OPERATIVOS:
+       - Potencia pico original: {demanda_max:.1f} kW
+       - Potencia pico gestionada: {demanda_recortada:.1f} kW
+       - Reducción neta de demanda de red: {reduccion_pico:.1f} kW
+    """
+    st.text_area("Expediente Ejecutivo Generado:", resumen_texto, height=340)
 
 # ==========================================
 # MÓDULO 6: EXPORTACIÓN CAD Y REPORTES
