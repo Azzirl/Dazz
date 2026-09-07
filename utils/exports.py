@@ -64,29 +64,71 @@ def generar_codigo_matlab(cfg, kpis):
 %% Análisis Dinámico y Peak Shaving EMS — {cfg['nombre_proyecto']}
 %% ============================================================
 clear; clc;
-P_lim = {cfg['p_lim']}; S_inv = {kpis['inv_req']}; V_nom_pu = 1.0;
+
+%% Parámetros del Sistema Operativo
+P_lim = {cfg['p_lim']}; 
+S_inv = {kpis['inv_req']:.2f}; 
+V_nom_pu = 1.0;
+C_bat = {cfg['c_bat']};
+SOC_min = 0.20 * C_bat;
+Energia = C_bat * 0.50;
+
+%% Perfiles de Entrada (24h)
 P_carga = [{', '.join(map(str, kpis['REAL_LOAD']))}];
 P_PV_real = [{', '.join(map(str, kpis['pv_real']))}];
-P_bat = zeros(1,24); Q_inyectada = zeros(1,24);
 
+%% Inicialización de Vectores
+P_bat = zeros(1,24); 
+P_red = zeros(1,24);
+SOC = zeros(1,24);
+Q_inyectada = zeros(1,24);
+V_final = zeros(1,24);
+
+%% Lógica de Simulación
 for t = 1:24
     P_teo = P_carga(t) - P_PV_real(t);
-    P_bat(t) = max(0, P_teo - P_lim);
+    
+    %% Peak Shaving Dispatch
+    if P_teo > P_lim
+        req = P_teo - P_lim;
+        if (Energia - req) >= SOC_min
+            P_bat(t) = req;
+        else
+            P_bat(t) = max(0, Energia - SOC_min);
+        end
+    end
+    
+    P_red(t) = P_teo - P_bat(t);
+    Energia = Energia - P_bat(t);
+    SOC(t) = (Energia / C_bat) * 100;
     
     %% Control Reactivo Volt/VAR (IEEE 2800) Droop Control
     Q_max = sqrt(max(0, S_inv^2 - P_bat(t)^2));
-    
-    %% Simulación de voltaje
     V_bus = V_nom_pu - (P_teo / ({cfg['s_trafo']} * 0.4)); 
     
     if V_bus < 0.98
         Q_req = (0.98 - V_bus) * (S_inv * 2);
         Q_inyectada(t) = min(Q_req, Q_max);
+        V_final(t) = V_bus + (Q_inyectada(t) / (S_inv * 2));
     elseif V_bus > 1.02
         Q_req = (V_bus - 1.02) * (S_inv * 2);
         Q_inyectada(t) = max(-Q_req, -Q_max);
+        V_final(t) = V_bus + (Q_inyectada(t) / (S_inv * 2));
+    else
+        V_final(t) = V_bus;
     end
 end
-disp('=== SIMULACIÓN COMPLETADA ===');
+
+%% Imprimir Resultados de la Simulación
+disp('=============================================');
+disp('      RESULTADOS DE LA SIMULACIÓN EMS        ');
+disp('=============================================');
+fprintf('Demanda Máxima Original:         %.2f kW\\n', max(P_carga));
+fprintf('Demanda Máxima a la Red (Pico):  %.2f kW\\n', max(P_red));
+fprintf('Reducción Pico (Peak Shaving):   %.2f kW\\n', max(P_carga) - max(P_red));
+fprintf('Capacidad del Inversor:          %.2f kVA\\n', S_inv);
+fprintf('SOC Mínimo Alcanzado:            %.1f %%\\n', min(SOC));
+fprintf('Voltaje Mínimo Corregido:        %.3f p.u.\\n', min(V_final));
+disp('=============================================');
 """
     return matlab_code
