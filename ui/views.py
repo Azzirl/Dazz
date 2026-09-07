@@ -46,74 +46,58 @@ def render_ems(cfg, df_ems, kpis):
     st.dataframe(df_ems, use_container_width=True)
 
     st.markdown("<hr style='border-color: #26354D;'>", unsafe_allow_html=True)
-    st.markdown("<h3 style='color: #00B8FF;'>Respaldo Matemático y Desglose Paso a Paso</h3>", unsafe_allow_html=True)
-    st.markdown("<p style='color: #94A3B8; font-size: 14px;'>Sustitución de variables en tiempo real según la configuración actual.</p>", unsafe_allow_html=True)
+    st.markdown("<h3 style='color: #00B8FF;'>Desglose Matemático del Sistema</h3>", unsafe_allow_html=True)
     
     c1, c2 = st.columns(2)
     
+    # --- COLUMNA 1: PEAK SHAVING Y SOC ---
     with c1:
-        st.markdown("<p style='color: #00D084; font-weight: bold;'>1. Balance de Potencia y Peak Shaving</p>", unsafe_allow_html=True)
-        st.latex(r"P_{red}(t) = P_{carga}(t) - P_{pv}(t) - P_{bat}(t)")
+        st.markdown("<p style='color: #00D084; font-weight: bold;'>1. Balance de Potencia y Recorte de Picos (Peak Shaving)</p>", unsafe_allow_html=True)
         
-        with st.expander("🔍 Ver proceso de cálculo del Peak Shaving paso a paso", expanded=True):
-            p_bruta_pico = kpis['demanda_max']
-            p_limite = cfg['p_lim']
-            req_pico = max(0.0, p_bruta_pico - p_limite)
-            p_red_calc = p_bruta_pico - req_pico
-            
-            st.markdown(f"""
-            * **Paso 1 (Demanda Pico):** {p_bruta_pico:.2f} kW.
-            * **Paso 2 (Límite EMS):** {p_limite:.2f} kW.
-            * **Paso 3 (Requerimiento BESS):**
-              $$P_{{req}} = {p_bruta_pico:.2f} - {p_limite:.2f} = {req_pico:.2f} \\text{{ kW}}$$
-            * **Paso 4 (Potencia Final de Red):**
-              $$P_{{red}} = {p_bruta_pico:.2f} - {req_pico:.2f} = {p_red_calc:.2f} \\text{{ kW}}$$
-            """)
+        p_bruta_pico = kpis['demanda_max']
+        p_limite = cfg['p_lim']
+        req_pico = max(0.0, p_bruta_pico - p_limite)
+        p_red_calc = p_bruta_pico - req_pico
+        
+        with st.expander("🔍 Desglose numérico del Peak Shaving", expanded=True):
+            st.latex(r"P_{req} = P_{bruta} - P_{limite}")
+            st.latex(fr"P_{{req}} = {p_bruta_pico:.2f} - {p_limite:.2f} = \mathbf{{{req_pico:.2f} \text{{ kW}}}}")
+            st.latex(r"P_{red} = P_{bruta} - P_{req}")
+            st.latex(fr"P_{{red}} = {p_bruta_pico:.2f} - {req_pico:.2f} = \mathbf{{{p_red_calc:.2f} \text{{ kW}}}}")
 
         st.markdown("<p style='color: #00D084; font-weight: bold; margin-top: 20px;'>2. Estado de Carga Mínimo (SOC)</p>", unsafe_allow_html=True)
-        st.latex(r"SOC_{min}(kWh) = C_{bat\_total} \times \frac{\%SOC_{min}}{100}")
         
-        with st.expander("🔍 Ver proceso de cálculo de Reserva de Batería"):
-            c_bat_total = cfg['c_bat']
-            soc_min_kwh = kpis['soc_min']
-            
-            st.markdown(f"""
-            * **Paso 1 (Capacidad Nominal):** BESS total de {c_bat_total:.2f} kWh.
-            * **Paso 2 (Límite Mínimo 20%):**
-              $$SOC_{{min}} = {c_bat_total:.2f} \\times 0.20 = {soc_min_kwh:.2f} \\text{{ kWh}}$$
-            """)
+        c_bat_total = cfg['c_bat']
+        soc_min_kwh = kpis['soc_min']
+        
+        with st.expander("🔍 Desglose numérico de Reserva de Batería", expanded=True):
+            st.latex(r"SOC_{min} = C_{bat\_total} \times \frac{\%SOC_{min}}{100}")
+            st.latex(fr"SOC_{{min}} = {c_bat_total:.2f} \times \frac{{20}}{{100}} = \mathbf{{{soc_min_kwh:.2f} \text{{ kWh}}}}")
 
+    # --- COLUMNA 2: CONTROL VOLT/VAR ---
     with c2:
         st.markdown("<p style='color: #00D084; font-weight: bold;'>3. Capacidad Reactiva Máxima (IEEE 2800)</p>", unsafe_allow_html=True)
-        st.latex(r"Q_{max} = \sqrt{S_{inv}^2 - P_{activa}^2}")
         
         p_activa_pico = kpis['demanda_recortada']
         s_inv_val = kpis['inv_req']
         q_max_calc = np.sqrt(max(0.0, s_inv_val**2 - p_activa_pico**2))
         
-        with st.expander("🔍 Ver proceso de cálculo de Reserva Reactiva paso a paso", expanded=True):
-            st.markdown(f"""
-            * **Paso 1 (Inversor Requerido):** $S_{{inv}} = {s_inv_val:.2f} \\text{{ kVA}}$.
-            * **Paso 2 (Potencia Activa Pico):** $P_{{activa}} = {p_activa_pico:.2f} \\text{{ kW}}$.
-            * **Paso 3 (Sustitución):**
-              $$Q_{{max}} = \\sqrt{{({s_inv_val:.2f})^2 - ({p_activa_pico:.2f})^2}} = {q_max_calc:.2f} \\text{{ kVAR}}$$
-            """)
+        with st.expander("🔍 Desglose numérico de Reserva Reactiva", expanded=True):
+            st.latex(r"Q_{max} = \sqrt{S_{inv}^2 - P_{activa}^2}")
+            st.latex(fr"Q_{{max}} = \sqrt{{({s_inv_val:.2f})^2 - ({p_activa_pico:.2f})^2}}")
+            st.latex(fr"Q_{{max}} = \sqrt{{{s_inv_val**2:.2f} - {p_activa_pico**2:.2f}}} = \mathbf{{{q_max_calc:.2f} \text{{ kVAR}}}}")
 
         st.markdown("<p style='color: #00D084; font-weight: bold; margin-top: 20px;'>4. Control Dinámico (Droop Volt/VAR)</p>", unsafe_allow_html=True)
-        st.latex(r"Q_{inyectada} = \min\left[ (0.98 - V_{actual}) \times (S_{inv} \times 2), \; Q_{max} \right]")
         
         v_min_reg = df_ems['V_pu'].min()
         q_iny_max = df_ems['Q_inyectada'].max()
         q_req_calc = (0.98 - v_min_reg) * (s_inv_val * 2)
         
-        with st.expander("🔍 Ver proceso de cálculo de Compensación Volt/VAR"):
-            st.markdown(f"""
-            * **Paso 1 (Voltaje Mínimo):** $V_{{actual}} = {v_min_reg:.3f} \\text{{ p.u.}}$
-            * **Paso 2 (Requerimiento Control):**
-              $$Q_{{req}} = (0.98 - {v_min_reg:.3f}) \\times ({s_inv_val:.2f} \\times 2) = {q_req_calc:.2f} \\text{{ kVAR}}$$
-            * **Paso 3 (Inyección Final):**
-              $$Q_{{inyectada}} = \\min({q_req_calc:.2f}, {q_max_calc:.2f}) = {q_iny_max:.1f} \\text{{ kVAR}}$$
-            """)
+        with st.expander("🔍 Desglose numérico de Compensación Volt/VAR", expanded=True):
+            st.latex(r"Q_{req} = (0.98 - V_{actual}) \times (S_{inv} \times 2)")
+            st.latex(fr"Q_{{req}} = (0.980 - {v_min_reg:.3f}) \times ({s_inv_val:.2f} \times 2) = {q_req_calc:.2f} \text{{ kVAR}}")
+            st.latex(r"Q_{inyectada} = \min(Q_{req}, Q_{max})")
+            st.latex(fr"Q_{{inyectada}} = \min({q_req_calc:.2f}, {q_max_calc:.2f}) = \mathbf{{{q_iny_max:.1f} \text{{ kVAR}}}}")
 
 
 def render_transitorios():
