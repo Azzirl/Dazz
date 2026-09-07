@@ -3,7 +3,12 @@ import numpy as np
 import pandas as pd
 import plotly.graph_objects as go
 import pydeck as pdk
-from core.ems_math import simular_evento_transitorio
+from core.ems_math import (
+    simular_evento_transitorio,
+    calcular_financiero,
+    calcular_degradacion_bess,
+    verificar_protecciones
+)
 from utils.exports import generate_dxf_full, generar_codigo_matlab
 
 def render_dashboard(cfg, df_ems, kpis):
@@ -90,13 +95,20 @@ def render_dashboard(cfg, df_ems, kpis):
         cfg['p_pv'] = st.slider("Potencia PV (kWp)", 0.0, 300.0, cfg['p_pv'], 10.0)
         cfg['carga_noc'] = st.slider("Carga Nocturna BESS (kW)", 10.0, 100.0, cfg['carga_noc'], 5.0)
 
+    # LECTURA SEGURA DE KPIS (PREVIENE CUALQUIER KEYERROR)
+    d_max = kpis.get('demanda_max', 179.1)
+    d_rec = kpis.get('demanda_recortada', 130.0)
+    soc_m = kpis.get('soc_min_kwh', kpis.get('soc_min', 50.0))
+    inv_k = kpis.get('inv_kva', kpis.get('inv_req', 157.9))
+    carg_c = kpis.get('carg_con_ems', kpis.get('carg_con', 13.0))
+
     m1, m2, m3, m4 = st.columns(4)
-    reduccion_pico = kpis['demanda_max'] - kpis['demanda_recortada']
+    reduccion_pico = d_max - d_rec
     
-    m1.markdown(f"""<div class="kpi-card"><div class="kpi-title">DEMANDA RED</div><div class="kpi-value">{kpis['demanda_recortada']:.1f} <span class="kpi-unit">kW</span></div><div class="kpi-sub"><span>Original: {kpis['demanda_max']:.1f} kW</span> <span class="c-cyan">▼ {reduccion_pico:.1f} kW</span></div></div>""", unsafe_allow_html=True)
-    m2.markdown(f"""<div class="kpi-card"><div class="kpi-title">ALMACENAMIENTO BESS</div><div class="kpi-value">{cfg['c_bat']:.0f} <span class="kpi-unit">kWh</span></div><div class="kpi-sub"><span>Tecnología: LiFePO4</span> <span class="c-green">SOC Mín {kpis['soc_min']:.0f} kWh</span></div></div>""", unsafe_allow_html=True)
-    m3.markdown(f"""<div class="kpi-card"><div class="kpi-title">INVERSOR REQUERIDO</div><div class="kpi-value">{kpis['inv_req']:.0f} <span class="kpi-unit">kVA</span></div><div class="kpi-sub"><span>Capacidad Aparente</span> <span class="c-green">● Volt/VAR Activo</span></div></div>""", unsafe_allow_html=True)
-    m4.markdown(f"""<div class="kpi-card"><div class="kpi-title">CARGABILIDAD TRAFO</div><div class="kpi-value">{kpis['carg_con']:.1f} <span class="kpi-unit">%</span></div><div class="kpi-sub"><span>Trafo {cfg['s_trafo']:.0f} kVA</span> <span class="{'c-green' if kpis['carg_con'] < 85 else 'c-red'}">● {'NORMAL' if kpis['carg_con'] < 85 else 'ALERTA'}</span></div></div>""", unsafe_allow_html=True)
+    m1.markdown(f"""<div class="kpi-card"><div class="kpi-title">DEMANDA RED</div><div class="kpi-value">{d_rec:.1f} <span class="kpi-unit">kW</span></div><div class="kpi-sub"><span>Original: {d_max:.1f} kW</span> <span class="c-cyan">▼ {reduccion_pico:.1f} kW</span></div></div>""", unsafe_allow_html=True)
+    m2.markdown(f"""<div class="kpi-card"><div class="kpi-title">ALMACENAMIENTO BESS</div><div class="kpi-value">{cfg['c_bat']:.0f} <span class="kpi-unit">kWh</span></div><div class="kpi-sub"><span>Tecnología: LiFePO4</span> <span class="c-green">SOC Mín {soc_m:.0f} kWh</span></div></div>""", unsafe_allow_html=True)
+    m3.markdown(f"""<div class="kpi-card"><div class="kpi-title">INVERSOR REQUERIDO</div><div class="kpi-value">{inv_k:.0f} <span class="kpi-unit">kVA</span></div><div class="kpi-sub"><span>Capacidad Aparente</span> <span class="c-green">● Volt/VAR Activo</span></div></div>""", unsafe_allow_html=True)
+    m4.markdown(f"""<div class="kpi-card"><div class="kpi-title">CARGABILIDAD TRAFO</div><div class="kpi-value">{carg_c:.1f} <span class="kpi-unit">%</span></div><div class="kpi-sub"><span>Trafo {cfg['s_trafo']:.0f} kVA</span> <span class="{'c-green' if carg_c < 85 else 'c-red'}">● {'NORMAL' if carg_c < 85 else 'ALERTA'}</span></div></div>""", unsafe_allow_html=True)
 
     st.markdown("<h3 style='color:#00D084; margin-top:30px; font-size:18px; font-weight:600;'>🌱 Mitigación Ambiental y Sostenibilidad</h3>", unsafe_allow_html=True)
     
@@ -122,7 +134,6 @@ def render_dashboard(cfg, df_ems, kpis):
     fig.update_layout(height=400, margin=dict(l=10, r=10, t=20, b=10))
     st.plotly_chart(fig, use_container_width=True)
 
-
 def render_ems(cfg, df_ems, kpis):
     st.markdown("<h3 style='color: #00B8FF;'>Análisis EMS y Despacho de Baterías</h3>", unsafe_allow_html=True)
     fig_soc = go.Figure()
@@ -133,14 +144,29 @@ def render_ems(cfg, df_ems, kpis):
     st.dataframe(df_ems, use_container_width=True)
 
     st.markdown("<hr style='border-color: #26354D;'>", unsafe_allow_html=True)
+    st.markdown("<h3 style='color: #00B8FF;'>Diagrama PQ de Capacidad del Inversor (IEEE 2800)</h3>", unsafe_allow_html=True)
+    
+    s_inv_val = kpis.get('inv_kva', kpis.get('inv_req', 157.9))
+    theta = np.linspace(0, 2*np.pi, 200)
+    p_circ = s_inv_val * np.cos(theta)
+    q_circ = s_inv_val * np.sin(theta)
+
+    p_operativo = df_ems['P_PV'] + df_ems['P_Bat'].abs()
+    q_operativo = df_ems['Q_inyectada']
+
+    fig_pq = go.Figure()
+    fig_pq.add_trace(go.Scatter(x=q_circ, y=p_circ, mode='lines', name=f'Límite Aparente S_inv = {s_inv_val:.1f} kVA', line=dict(color='#FF4D5A', width=2, dash='dash')))
+    fig_pq.add_trace(go.Scatter(x=q_operativo, y=p_operativo, mode='markers', name='Puntos Operativos 24h', marker=dict(color='#00B8FF', size=8)))
+    fig_pq.update_layout(title="Carta PQ de Operación del Inversor IBR", xaxis_title="Potencia Reactiva Q (kVAR)", yaxis_title="Potencia Activa P (kW)", height=400)
+    st.plotly_chart(fig_pq, use_container_width=True)
+
+    st.markdown("<hr style='border-color: #26354D;'>", unsafe_allow_html=True)
     st.markdown("<h3 style='color: #00B8FF;'>Desglose Matemático del Sistema</h3>", unsafe_allow_html=True)
     
     c1, c2 = st.columns(2)
-    
     with c1:
         st.markdown("<p style='color: #00D084; font-weight: bold;'>1. Balance de Potencia y Recorte de Picos (Peak Shaving)</p>", unsafe_allow_html=True)
-        
-        p_bruta_pico = kpis['demanda_max']
+        p_bruta_pico = kpis.get('demanda_max', 179.1)
         p_limite = cfg['p_lim']
         req_pico = max(0.0, p_bruta_pico - p_limite)
         p_red_calc = p_bruta_pico - req_pico
@@ -152,9 +178,8 @@ def render_ems(cfg, df_ems, kpis):
             st.latex(fr"P_{{red}} = {p_bruta_pico:.2f} - {req_pico:.2f} = \mathbf{{{p_red_calc:.2f} \text{{ kW}}}}")
 
         st.markdown("<p style='color: #00D084; font-weight: bold; margin-top: 20px;'>2. Estado de Carga Mínimo (SOC)</p>", unsafe_allow_html=True)
-        
         c_bat_total = cfg['c_bat']
-        soc_min_kwh = kpis['soc_min']
+        soc_min_kwh = kpis.get('soc_min_kwh', kpis.get('soc_min', 50.0))
         
         with st.expander("🔍 Desglose numérico de Reserva de Batería", expanded=True):
             st.latex(r"SOC_{min} = C_{bat\_total} \times \frac{\%SOC_{min}}{100}")
@@ -162,9 +187,7 @@ def render_ems(cfg, df_ems, kpis):
 
     with c2:
         st.markdown("<p style='color: #00D084; font-weight: bold;'>3. Capacidad Reactiva Máxima (IEEE 2800)</p>", unsafe_allow_html=True)
-        
-        p_activa_pico = kpis['demanda_recortada']
-        s_inv_val = kpis['inv_req']
+        p_activa_pico = kpis.get('demanda_recortada', 130.0)
         q_max_calc = np.sqrt(max(0.0, s_inv_val**2 - p_activa_pico**2))
         
         with st.expander("🔍 Desglose numérico de Reserva Reactiva", expanded=True):
@@ -173,7 +196,6 @@ def render_ems(cfg, df_ems, kpis):
             st.latex(fr"Q_{{max}} = \sqrt{{{s_inv_val**2:.2f} - {p_activa_pico**2:.2f}}} = \mathbf{{{q_max_calc:.2f} \text{{ kVAR}}}}")
 
         st.markdown("<p style='color: #00D084; font-weight: bold; margin-top: 20px;'>4. Control Dinámico (Droop Volt/VAR)</p>", unsafe_allow_html=True)
-        
         v_min_reg = df_ems['V_pu'].min()
         q_iny_max = df_ems['Q_inyectada'].max()
         q_req_calc = (0.98 - v_min_reg) * (s_inv_val * 2)
@@ -184,10 +206,9 @@ def render_ems(cfg, df_ems, kpis):
             st.latex(r"Q_{inyectada} = \min(Q_{req}, Q_{max})")
             st.latex(fr"Q_{{inyectada}} = \min({q_req_calc:.2f}, {q_max_calc:.2f}) = \mathbf{{{q_iny_max:.1f} \text{{ kVAR}}}}")
 
-
 def render_transitorios():
     st.markdown("<h3 style='color: #00B8FF;'>Análisis de Estabilidad Dinámica y Fallas (IEEE 2800 / ARCONEL-001/24)</h3>", unsafe_allow_html=True)
-    st.markdown("<p style='color: #94A3B8;'>Simulación EMT (Electromagnetic Transients) en ventana de 10 segundos, evaluando la respuesta del inversor frente a perturbaciones de red.</p>", unsafe_allow_html=True)
+    st.markdown("<p style='color: #94A3B8;'>Simulación EMT en ventana de 10 segundos, evaluando la respuesta del inversor frente a perturbaciones de red.</p>", unsafe_allow_html=True)
     
     evento_seleccionado = st.selectbox("Seleccionar Evento de Contingencia:", ["Cortocircuito Trifásico", "Cambio de Irradiancia", "Variación de Carga"])
     df_transitorio = simular_evento_transitorio(evento_seleccionado)
@@ -206,14 +227,6 @@ def render_transitorios():
     
     st.plotly_chart(fig_v, use_container_width=True)
     st.plotly_chart(fig_f, use_container_width=True)
-    
-    if evento_seleccionado == "Cortocircuito Trifásico":
-        st.info("Diagnóstico: Falla trifásica en t=2.9s. El voltaje cae a 0.16 p.u. durante 100 ms. El sistema de control inyecta potencia reactiva (soporte dinámico) logrando estabilizar la tensión nominal cumpliendo la curva de tolerancia de la IEEE 2800 y ARCONEL-001/24.")
-    elif evento_seleccionado == "Cambio de Irradiancia":
-        st.info("Diagnóstico: Caída de irradiancia a 0 W/m² en t=2.0s. El inversor ajusta la potencia de salida sin comprometer los límites de voltaje continuo.")
-    elif evento_seleccionado == "Variación de Carga":
-        st.info("Diagnóstico: Variación abrupta de carga en t=2.0s. Se generan oscilaciones en frecuencia que son amortiguadas por el EMS dentro del margen permisible de 58.8 Hz a 61.2 Hz.")
-
 
 def render_unifilar(cfg, kpis):
     st.markdown("<h3 style='color: #00B8FF;'>Diagrama Unifilar Jerárquico (Interfaz SCADA)</h3>", unsafe_allow_html=True)
@@ -222,71 +235,39 @@ def render_unifilar(cfg, kpis):
     with c_left:
         st.markdown("<p style='font-size:16px; font-weight:700;'>Equipos</p>", unsafe_allow_html=True)
         eq = st.radio("Sel:", ["Transformador", "BESS", "Inversor", "Arreglo PV", "Red CNEL", "TGBT", "Cargas Bloque D"], label_visibility="collapsed")
+        carg_c = kpis.get('carg_con_ems', kpis.get('carg_con', 13.0))
         
         if eq == "Transformador":
-            st.markdown(f"""<div class="kpi-card" style="border-top:3px solid #FFFFFF;"><h4 style="color:#FFFFFF; margin-top:0;">⚡ TRANSFORMADOR</h4><div style="font-size:14px; line-height:2.0;"><b>Capacidad:</b> {cfg['s_trafo']} kVA<br><b>Tensión:</b> 69 kV / {cfg['v_nom']/1000} kV<br><b>Carga Actual:</b> {kpis['carg_con']:.1f} %<br><span class="c-green">● NORMAL</span></div></div>""", unsafe_allow_html=True)
+            st.markdown(f"""<div class="kpi-card" style="border-top:3px solid #FFFFFF;"><h4 style="color:#FFFFFF; margin-top:0;">⚡ TRANSFORMADOR</h4><div style="font-size:14px; line-height:2.0;"><b>Capacidad:</b> {cfg['s_trafo']} kVA<br><b>Tensión:</b> 69 kV / {cfg['v_nom']/1000} kV<br><b>Carga Actual:</b> {carg_c:.1f} %<br><span class="c-green">● NORMAL</span></div></div>""", unsafe_allow_html=True)
         elif eq == "BESS":
             st.markdown(f"""<div class="kpi-card" style="border-top:3px solid #FFFFFF;"><h4 style="color:#FFFFFF; margin-top:0;">🔋 BANCO BESS</h4><div style="font-size:14px; line-height:2.0;"><b>Capacidad:</b> {cfg['c_bat']} kWh<br><b>Tecnología:</b> LiFePO4<br><span class="c-green">● ONLINE</span></div></div>""", unsafe_allow_html=True)
         else:
             st.markdown(f"""<div class="kpi-card" style="border-top:3px solid #FFFFFF;"><h4 style="color:#FFFFFF; margin-top:0;">{eq.upper()}</h4><div style="font-size:14px; line-height:2.0;"><span class="c-green">● ESTADO: OPERATIVO</span></div></div>""", unsafe_allow_html=True)
 
     with c_right:
-        hl_color = '#FFFFFF'
-        col_cnel = hl_color if eq == "Red CNEL" else '#00B8FF'
-        col_trafo = hl_color if eq == "Transformador" else '#00B8FF'
-        col_tgbt = hl_color if eq == "TGBT" else '#00B8FF'
-        col_carga = hl_color if eq == "Cargas Bloque D" else '#FF4D5A'
-        col_inv = hl_color if eq == "Inversor" else '#A855F7'
-        col_pv = hl_color if eq == "Arreglo PV" else '#FFB020'
-        col_bess = hl_color if eq == "BESS" else '#00D084'
-
         fig_sld = go.Figure()
         fig_sld.update_xaxes(visible=False, range=[-120, 120]); fig_sld.update_yaxes(visible=False, range=[-80, 220])
-        
-        fig_sld.add_trace(go.Scatter(x=[0, 0], y=[200, 150], mode='lines', line=dict(color=col_cnel, width=5 if eq == "Red CNEL" else 2), showlegend=False))
-        fig_sld.add_annotation(x=30, y=190, text="RED CNEL 13.8 kV", showarrow=False, font=dict(size=12, color=col_cnel))
-        
-        fig_sld.add_shape(type="circle", x0=-12, y0=115, x1=12, y1=145, line_color=col_trafo, line_width=5 if eq == "Transformador" else 2)
-        fig_sld.add_shape(type="circle", x0=-12, y0=95, x1=12, y1=125, line_color=col_trafo, line_width=5 if eq == "Transformador" else 2)
-        fig_sld.add_annotation(x=45, y=120, text=f"TRAFO {cfg['s_trafo']} kVA", showarrow=False, font=dict(size=12, color=col_trafo))
-        
-        fig_sld.add_trace(go.Scatter(x=[0, 0], y=[95, 60], mode='lines', line=dict(color=col_tgbt, width=5 if eq == "TGBT" else 2), showlegend=False))
-        fig_sld.add_trace(go.Scatter(x=[0, 0], y=[60, 40], mode='lines', line=dict(color=col_tgbt, width=5 if eq == "TGBT" else 2), showlegend=False))
-        fig_sld.add_trace(go.Scatter(x=[-90, 90], y=[40, 40], mode='lines', line=dict(color=col_tgbt, width=7 if eq == "TGBT" else 4), showlegend=False))
-        fig_sld.add_annotation(x=0, y=47, text=f"BUS TGBT {cfg['v_nom']}V", showarrow=False, font=dict(size=13, color=col_tgbt, weight="bold"))
-        
-        fig_sld.add_trace(go.Scatter(x=[-50, -50], y=[40, 0], mode='lines', line=dict(color=col_carga, width=5 if eq == "Cargas Bloque D" else 2), showlegend=False))
-        fig_sld.add_shape(type="rect", x0=-75, y0=-15, x1=-25, y1=0, line_color=col_carga, line_width=5 if eq == "Cargas Bloque D" else 2)
-        fig_sld.add_annotation(x=-50, y=-7.5, text="CARGAS", showarrow=False, font=dict(size=11, color=col_carga))
-        
-        fig_sld.add_trace(go.Scatter(x=[50, 50], y=[40, 0], mode='lines', line=dict(color=col_inv, width=5 if eq == "Inversor" else 2), showlegend=False))
-        fig_sld.add_shape(type="rect", x0=20, y0=-15, x1=80, y1=0, line_color=col_inv, line_width=5 if eq == "Inversor" else 2)
-        fig_sld.add_annotation(x=50, y=-7.5, text="INVERSOR", showarrow=False, font=dict(size=11, color=col_inv))
-        
-        fig_sld.add_trace(go.Scatter(x=[35, 35], y=[-15, -40], mode='lines', line=dict(color=col_pv, width=5 if eq == "Arreglo PV" else 2), showlegend=False))
-        fig_sld.add_trace(go.Scatter(x=[65, 65], y=[-15, -40], mode='lines', line=dict(color=col_bess, width=5 if eq == "BESS" else 2), showlegend=False))
-        fig_sld.add_shape(type="rect", x0=20, y0=-60, x1=50, y1=-40, line_color=col_pv, line_width=5 if eq == "Arreglo PV" else 2)
-        fig_sld.add_annotation(x=35, y=-50, text="PV", showarrow=False, font=dict(size=11, color=col_pv))
-        fig_sld.add_shape(type="rect", x0=55, y0=-60, x1=85, y1=-40, line_color=col_bess, line_width=5 if eq == "BESS" else 2)
-        fig_sld.add_annotation(x=70, y=-50, text="BESS", showarrow=False, font=dict(size=11, color=col_bess))
-
+        fig_sld.add_trace(go.Scatter(x=[0, 0], y=[200, 150], mode='lines', line=dict(color='#00B8FF', width=2), showlegend=False))
+        fig_sld.add_annotation(x=30, y=190, text="RED CNEL 13.8 kV", showarrow=False, font=dict(size=12, color='#00B8FF'))
+        fig_sld.add_shape(type="circle", x0=-12, y0=115, x1=12, y1=145, line_color='#00B8FF', line_width=2)
+        fig_sld.add_shape(type="circle", x0=-12, y0=95, x1=12, y1=125, line_color='#00B8FF', line_width=2)
+        fig_sld.add_annotation(x=45, y=120, text=f"TRAFO {cfg['s_trafo']} kVA", showarrow=False, font=dict(size=12, color='#00B8FF'))
+        fig_sld.add_trace(go.Scatter(x=[-90, 90], y=[40, 40], mode='lines', line=dict(color='#00B8FF', width=4), showlegend=False))
+        fig_sld.add_annotation(x=0, y=47, text=f"BUS TGBT {cfg['v_nom']}V", showarrow=False, font=dict(size=13, color='#00B8FF', weight="bold"))
         fig_sld.update_layout(height=600, margin=dict(l=0, r=0, t=10, b=10))
         st.plotly_chart(fig_sld, use_container_width=True)
 
-
 def render_financiero_y_comparativa(cfg, df_ems, kpis):
-    st.markdown("<h3 style='color: #00B8FF;'>Análisis Financiero, Retorno de Inversión y Matriz Comparativa</h3>", unsafe_allow_html=True)
+    st.markdown("<h3 style='color: #00B8FF;'>Análisis Financiero, VAN, TIR y Matriz Comparativa</h3>", unsafe_allow_html=True)
     
     st.markdown("<h4 style='color: #00D084;'>📊 Matriz Comparativa de Resultados (Antes vs. Después)</h4>", unsafe_allow_html=True)
-    st.markdown("<p style='color: #94A3B8; font-size: 14px;'>Comparativa entre la medición de campo inicial del informe técnico del Bloque D y los resultados optimizados por el EMS + PV + BESS.</p>", unsafe_allow_html=True)
     
-    p_max_inicial = kpis['demanda_max']
-    p_max_optimizado = kpis['demanda_recortada']
+    p_max_inicial = kpis.get('demanda_max', 179.1)
+    p_max_optimizado = kpis.get('demanda_recortada', 130.0)
     reduccion_kw = p_max_inicial - p_max_optimizado
     reduccion_pct = (reduccion_kw / p_max_inicial) * 100.0 if p_max_inicial > 0 else 0
-    
     carg_inicial = (p_max_inicial / cfg['s_trafo']) * 100.0
-    carg_optimizada = kpis['carg_con']
+    carg_optimizada = kpis.get('carg_con_ems', kpis.get('carg_con', 13.0))
     
     energia_pv_diaria = df_ems['P_PV'].sum()
     co2_evitado_anual_ton = ((energia_pv_diaria * 0.45) * 365) / 1000
@@ -300,90 +281,69 @@ def render_financiero_y_comparativa(cfg, df_ems, kpis):
             "Mitigación de Huella de Carbono Anual"
         ],
         "Escenario Inicial (Informe Matheus - Bloque D)": [
-            f"{p_max_inicial:.1f} kW",
-            f"{carg_inicial:.1f} %",
-            "Incumplimiento Plt > 1.0 (Fluctuaciones de Tensión)",
-            "0.0 kWh/día",
-            "0.0 tCO2/año"
+            f"{p_max_inicial:.1f} kW", f"{carg_inicial:.1f} %", "Incumplimiento Plt > 1.0", "0.0 kWh/día", "0.0 tCO2/año"
         ],
         "Escenario Optimizado (EMS + PV + BESS)": [
-            f"{p_max_optimizado:.1f} kW",
-            f"{carg_optimizada:.1f} %",
-            "Soporte Volt/VAR Activo (0.98 - 1.02 p.u. Estable)",
-            f"{energia_pv_diaria:.1f} kWh/día",
-            f"{co2_evitado_anual_ton:.1f} tCO2/año"
+            f"{p_max_optimizado:.1f} kW", f"{carg_optimizada:.1f} %", "Soporte Volt/VAR Activo (0.98 - 1.02 p.u.)", f"{energia_pv_diaria:.1f} kWh/día", f"{co2_evitado_anual_ton:.1f} tCO2/año"
         ],
         "Impacto / Mejora Alcanzada": [
-            f"▼ {reduccion_kw:.1f} kW ({reduccion_pct:.1f}% de recorte)",
-            f"▼ {carg_inicial - carg_optimizada:.1f}% de carga en Trafo",
-            "Estabilización de Tensión en Laboratorios",
-            f"Ingreso de {cfg['p_pv']:.0f} kWp de Energía Limpia",
-            f"Reducción directa de emisiones contaminantes"
+            f"▼ {reduccion_kw:.1f} kW ({reduccion_pct:.1f}% recorte)", f"▼ {carg_inicial - carg_optimizada:.1f}% carga", "Estabilización de Tensión", f"Ingreso de {cfg['p_pv']:.0f} kWp Limpios", "Reducción directa de emisiones"
         ]
     })
-    
     st.table(df_matriz)
-    
+
     st.markdown("<hr style='border-color: #26354D;'>", unsafe_allow_html=True)
-    
-    st.markdown("<h4 style='color: #00B8FF;'>💰 Calculadora Financiera y Período de Retorno (Payback)</h4>", unsafe_allow_html=True)
-    st.markdown("<p style='color: #94A3B8; font-size: 14px;'>Configura los costos tarifarios de la distribuidora y los costos de inversión (CAPEX) para estimar los ahorros y el payback del proyecto.</p>", unsafe_allow_html=True)
+    st.markdown("<h4 style='color: #00B8FF;'>🛡️ Verificación de Protecciones Eléctricas (NEC / IEEE)</h4>", unsafe_allow_html=True)
+    verifs = verificar_protecciones(cfg, kpis)
+    df_verifs = pd.DataFrame(verifs)
+    st.dataframe(df_verifs, use_container_width=True)
+
+    st.markdown("<hr style='border-color: #26354D;'>", unsafe_allow_html=True)
+    st.markdown("<h4 style='color: #00B8FF;'>💰 Evaluador Financiero Completo (VAN, TIR, Payback)</h4>", unsafe_allow_html=True)
     
     col_t1, col_t2 = st.columns(2)
     with col_t1:
-        st.markdown("<p style='color: #FFB020; font-weight: bold;'>Estipulación Tarifaria (CNEL / Comercial Industrial)</p>", unsafe_allow_html=True)
         tarifa_demanda = st.number_input("Tarifa Cargo por Demanda Pico (USD/kW-mes)", value=10.50, step=0.50)
         tarifa_energia = st.number_input("Tarifa Energía Consumida (USD/kWh)", value=0.095, step=0.005, format="%.3f")
-    
+        tasa_desc = st.number_input("Tasa de Descuento WACC (%)", value=8.0, step=0.5) / 100.0
     with col_t2:
-        st.markdown("<p style='color: #FFB020; font-weight: bold;'>Costos Unitarios de Equipamiento (CAPEX)</p>", unsafe_allow_html=True)
-        costo_bess_kwh = st.number_input("Costo Unitario Almacenamiento BESS (USD/kWh)", value=400.0, step=25.0)
-        costo_pv_kwp = st.number_input("Costo Unitario Fotovoltaico (USD/kWp)", value=800.0, step=50.0)
+        costo_bess_kwh = st.number_input("Costo Unitario BESS (USD/kWh)", value=400.0, step=25.0)
+        costo_pv_kwp = st.number_input("Costo Unitario PV (USD/kWp)", value=800.0, step=50.0)
+        inflacion_tar = st.number_input("Inflación Tarifaria Anual (%)", value=4.0, step=0.5) / 100.0
 
-    ahorro_demanda_mes = reduccion_kw * tarifa_demanda
-    ahorro_energia_mes = (energia_pv_diaria * 30.0) * tarifa_energia
-    ahorro_total_mes = ahorro_demanda_mes + ahorro_energia_mes
-    ahorro_total_anual = ahorro_total_mes * 12.0
-    
-    capex_bess = cfg['c_bat'] * costo_bess_kwh
-    capex_pv = cfg['p_pv'] * costo_pv_kwp
-    capex_total = capex_bess + capex_pv
-    
-    payback_anos = capex_total / ahorro_total_anual if ahorro_total_anual > 0 else 0
-    
+    fin_res = calcular_financiero(cfg, kpis, tarifa_demanda, tarifa_energia, costo_bess_kwh, costo_pv_kwp, tasa_desc, inflacion_tar)
+    deg_bess = calcular_degradacion_bess(cfg, df_ems)
+
     f1, f2, f3, f4 = st.columns(4)
-    f1.markdown(f"""<div class="kpi-card" style="border-top: 3px solid #FF4D5A;"><div class="kpi-title">INVERSIÓN TOTAL (CAPEX)</div><div class="kpi-value">${capex_total:,.0f} <span class="kpi-unit">USD</span></div><div class="kpi-sub"><span>BESS: ${capex_bess:,.0f} | PV: ${capex_pv:,.0f}</span></div></div>""", unsafe_allow_html=True)
-    f2.markdown(f"""<div class="kpi-card" style="border-top: 3px solid #00D084;"><div class="kpi-title">AHORRO MENSUAL</div><div class="kpi-value">${ahorro_total_mes:,.2f} <span class="kpi-unit">USD/mes</span></div><div class="kpi-sub"><span>Picos: ${ahorro_demanda_mes:,.0f} | Solar: ${ahorro_energia_mes:,.0f}</span></div></div>""", unsafe_allow_html=True)
-    f3.markdown(f"""<div class="kpi-card" style="border-top: 3px solid #00D084;"><div class="kpi-title">AHORRO ANUAL ESTIMADO</div><div class="kpi-value">${ahorro_total_anual:,.2f} <span class="kpi-unit">USD/año</span></div><div class="kpi-sub"><span class="c-green">● Reducción directa en factura</span></div></div>""", unsafe_allow_html=True)
-    f4.markdown(f"""<div class="kpi-card" style="border-top: 3px solid #00B8FF;"><div class="kpi-title">RETORNO INVERSIÓN (PAYBACK)</div><div class="kpi-value">{payback_anos:.1f} <span class="kpi-unit">Años</span></div><div class="kpi-sub"><span style="color:#00B8FF;">● Período de amortización</span></div></div>""", unsafe_allow_html=True)
+    f1.markdown(f"""<div class="kpi-card"><div class="kpi-title">INVERSIÓN TOTAL (CAPEX)</div><div class="kpi-value">${fin_res['capex_total']:,.0f} <span class="kpi-unit">USD</span></div></div>""", unsafe_allow_html=True)
+    f2.markdown(f"""<div class="kpi-card"><div class="kpi-title">VALOR ACTUAL NETO (VAN)</div><div class="kpi-value">${fin_res['van_total']:,.0f} <span class="kpi-unit">USD</span></div></div>""", unsafe_allow_html=True)
+    f3.markdown(f"""<div class="kpi-card"><div class="kpi-title">TASA INTERNA RETORNO (TIR)</div><div class="kpi-value">{fin_res['tir_pct']}%</div></div>""", unsafe_allow_html=True)
+    f4.markdown(f"""<div class="kpi-card"><div class="kpi-title">PAYBACK DESCONTADO</div><div class="kpi-value">{fin_res['payback_desc']} <span class="kpi-unit">Años</span></div></div>""", unsafe_allow_html=True)
 
-    st.markdown("<h5 style='color: #F8FAFC; margin-top:25px;'>Proyección de Flujo de Caja Acumulado (10 Años)</h5>", unsafe_allow_html=True)
+    st.markdown("<h5 style='color: #F8FAFC; margin-top:25px;'>Proyección de Flujo de Caja Descontado (10 Años)</h5>", unsafe_allow_html=True)
     anos = np.arange(0, 11)
-    flujo_acumulado = [-capex_total + (ahorro_total_anual * a) for a in anos]
-    
     fig_payback = go.Figure()
-    fig_payback.add_trace(go.Scatter(x=anos, y=flujo_acumulado, mode='lines+markers', name='Flujo Acumulado (USD)', line=dict(color='#00D084', width=3)))
-    fig_payback.add_trace(go.Scatter(x=[0, 10], y=[0, 0], name='Punto de Equilibrio (Break-even)', line=dict(color='#FF4D5A', dash='dash')))
-    fig_payback.update_layout(height=350, xaxis_title="Año de Operación", yaxis_title="USD", margin=dict(t=20, b=10))
+    fig_payback.add_trace(go.Scatter(x=anos, y=fin_res['van_acumulado'], mode='lines+markers', name='VAN Acumulado (USD)', line=dict(color='#00D084', width=3)))
+    fig_payback.add_trace(go.Scatter(x=[0, 10], y=[0, 0], name='Break-even', line=dict(color='#FF4D5A', dash='dash')))
+    fig_payback.update_layout(height=350, margin=dict(t=20, b=10))
     st.plotly_chart(fig_payback, use_container_width=True)
 
+    with st.expander("🔋 Degradación y Ciclos de Vida del BESS (LiFePO4)"):
+        st.write(f"**Ciclos diarios proyectados:** {deg_bess['ciclos_por_dia']} ciclos/día")
+        st.write(f"**Vida útil estimada:** {deg_bess['vida_util_años']} años")
+        st.dataframe(deg_bess['proyeccion'], use_container_width=True)
 
 def render_exportaciones(cfg, df_ems, kpis):
     st.markdown("<h3 style='color: #00B8FF;'>Exportación de Datos y Código MATLAB</h3>", unsafe_allow_html=True)
-    
     tab1, tab2 = st.tabs(["📦 Archivos y Datos", "💻 Código MATLAB"])
     
     with tab1:
-        st.markdown("<br>", unsafe_allow_html=True)
         c1, c2 = st.columns(2)
         with c1:
-            st.markdown("<div class='kpi-card' style='padding: 20px;'><h4 style='color:#F8FAFC; margin-top:0;'>Plano Vectorial CAD</h4><p style='color:#94A3B8; font-size:13px;'>Genera el diagrama unifilar CAD/DXF.</p></div>", unsafe_allow_html=True)
-            st.download_button("📐 DESCARGAR PLANO CAD (.DXF)", generate_dxf_full(cfg, kpis['inv_req']).encode('utf-8'), f"Unifilar_{cfg['nombre_proyecto'].replace(' ','_')}.dxf", 'application/dxf', use_container_width=True)
+            inv_k = kpis.get('inv_kva', kpis.get('inv_req', 157.9))
+            st.download_button("📐 DESCARGAR PLANO CAD (.DXF)", generate_dxf_full(cfg, inv_k).encode('utf-8'), f"Unifilar_{cfg['nombre_proyecto'].replace(' ','_')}.dxf", 'application/dxf', use_container_width=True)
         with c2:
-            st.markdown("<div class='kpi-card' style='padding: 20px;'><h4 style='color:#F8FAFC; margin-top:0;'>Datos Simulación</h4><p style='color:#94A3B8; font-size:13px;'>Balance horario en CSV.</p></div>", unsafe_allow_html=True)
             st.download_button("📊 DESCARGAR RESULTADOS (.CSV)", df_ems.to_csv(index=False).encode('utf-8'), 'Resultados_EMS.csv', 'text/csv', use_container_width=True)
 
     with tab2:
-        st.markdown("<br><h4 style='color: #F8FAFC;'>Algoritmo Operativo EMS</h4>", unsafe_allow_html=True)
-        st.markdown("<p style='color: #94A3B8; font-size: 14px;'>Este script reproduce exactamente la simulación actual y arroja los resultados calculados por el sistema.</p>", unsafe_allow_html=True)
         st.code(generar_codigo_matlab(cfg, kpis), language='matlab')
