@@ -2,6 +2,7 @@ import streamlit as st
 import numpy as np
 import pandas as pd
 import plotly.graph_objects as go
+import pydeck as pdk
 from core.ems_math import simular_evento_transitorio
 from utils.exports import generar_docx, generate_dxf_full, generar_codigo_matlab
 
@@ -15,14 +16,58 @@ def render_dashboard(cfg, df_ems, kpis):
         cfg['lat'] = st.number_input("Latitud GPS", value=cfg.get('lat', -2.1833), format="%.4f")
         cfg['lon'] = st.number_input("Longitud GPS", value=cfg.get('lon', -79.8833), format="%.4f")
 
+        # Selector de tipo/estilo de mapa
+        estilo_mapa = st.selectbox(
+            "Estilo de Mapa",
+            ["Oscuro (SCADA Dark)", "Claro (Light)", "Callejero", "Satelital"],
+            index=0
+        )
+        
+        # Selector de nivel de zoom para acercamiento dinámico
+        zoom_nivel = st.slider("Nivel de Zoom", min_value=1, max_value=20, value=15)
+
         if kpis.get('es_api_real'):
             st.success("📡 Telemetría Conectada: Obteniendo irradiancia en tiempo real vía API Satelital.")
         else:
             st.warning("⚠️ Sin conexión satelital: Utilizando perfil climático de respaldo (Fallback).")
 
     with col_mapa:
-        df_ubicacion = pd.DataFrame({'lat': [cfg['lat']], 'lon': [cfg['lon']]})
-        st.map(df_ubicacion, zoom=11, use_container_width=True)
+        # Mapeo de estilos de mapas
+        estilos_dict = {
+            "Oscuro (SCADA Dark)": pdk.map_styles.CARTO_DARK,
+            "Claro (Light)": pdk.map_styles.CARTO_LIGHT,
+            "Callejero": pdk.map_styles.ROAD,
+            "Satelital": "mapbox://styles/mapbox/satellite-v9"
+        }
+
+        # Estado de vista dinámico (se centra y enfoca exactamente en la coordenada configurada)
+        view_state = pdk.ViewState(
+            latitude=cfg['lat'],
+            longitude=cfg['lon'],
+            zoom=zoom_nivel,
+            pitch=45,
+            bearing=0
+        )
+
+        # Capa de punto de la microred (Marker con resplandor cyan)
+        capa_punto = pdk.Layer(
+            "ScatterplotLayer",
+            data=pd.DataFrame({'lat': [cfg['lat']], 'lon': [cfg['lon']], 'nombre': [cfg['nombre_proyecto']]}),
+            get_position='[lon, lat]',
+            get_color='[0, 184, 255, 200]',
+            get_radius=50,
+            radius_min_pixels=8,
+            radius_max_pixels=25,
+            pickable=True
+        )
+
+        # Renderizado interactivo con PyDeck
+        st.pydeck_chart(pdk.Deck(
+            map_style=estilos_dict[estilo_mapa],
+            initial_view_state=view_state,
+            layers=[capa_punto],
+            tooltip={"text": "⚡ {nombre}\nLat: {lat}, Lon: {lon}"}
+        ), use_container_width=True)
 
     st.markdown("<br>", unsafe_allow_html=True)
     st.markdown("<div class='config-header'>Configuración Avanzada del EMS</div>", unsafe_allow_html=True)
