@@ -4,10 +4,9 @@ import pandas as pd
 import plotly.graph_objects as go
 import pydeck as pdk
 from core.ems_math import simular_evento_transitorio
-from utils.exports import generar_docx, generate_dxf_full, generar_codigo_matlab
+from utils.exports import generate_dxf_full, generar_codigo_matlab
 
 def render_dashboard(cfg, df_ems, kpis):
-    # --- MÓDULO DE GEOLOCALIZACIÓN Y TELEMETRÍA CLIMÁTICA ---
     st.markdown("<h3 style='color: #00B8FF; font-size:18px;'>📍 Geolocalización & Parámetros Climáticos Satelitales</h3>", unsafe_allow_html=True)
     
     col_coords, col_mapa = st.columns([1.5, 2.5])
@@ -125,7 +124,6 @@ def render_ems(cfg, df_ems, kpis):
     
     c1, c2 = st.columns(2)
     
-    # --- COLUMNA 1: PEAK SHAVING Y SOC ---
     with c1:
         st.markdown("<p style='color: #00D084; font-weight: bold;'>1. Balance de Potencia y Recorte de Picos (Peak Shaving)</p>", unsafe_allow_html=True)
         
@@ -149,7 +147,6 @@ def render_ems(cfg, df_ems, kpis):
             st.latex(r"SOC_{min} = C_{bat\_total} \times \frac{\%SOC_{min}}{100}")
             st.latex(fr"SOC_{{min}} = {c_bat_total:.2f} \times \frac{{20}}{{100}} = \mathbf{{{soc_min_kwh:.2f} \text{{ kWh}}}}")
 
-    # --- COLUMNA 2: CONTROL VOLT/VAR ---
     with c2:
         st.markdown("<p style='color: #00D084; font-weight: bold;'>3. Capacidad Reactiva Máxima (IEEE 2800)</p>", unsafe_allow_html=True)
         
@@ -262,12 +259,6 @@ def render_unifilar(cfg, kpis):
 
         fig_sld.update_layout(height=600, margin=dict(l=0, r=0, t=10, b=10))
         st.plotly_chart(fig_sld, use_container_width=True)
-
-
-def render_memoria(cfg, kpis):
-    st.markdown("<h3 style='color: #00B8FF;'>Generación de Memoria Técnica</h3>", unsafe_allow_html=True)
-    st.markdown("<p style='color: #94A3B8;'>El documento Word (.docx) se genera respetando tu formato de ingeniería exacto.</p>", unsafe_allow_html=True)
-    st.download_button("📄 DESCARGAR MEMORIA TÉCNICA (.DOCX)", generar_docx(cfg, kpis['inv_req']), f"Memoria_Tecnica_{cfg['nombre_proyecto'].replace(' ','_')}.docx", 'application/vnd.openxmlformats-officedocument.wordprocessingml.document')
 
 
 def render_exportaciones(cfg, df_ems, kpis):
