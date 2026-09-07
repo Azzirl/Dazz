@@ -45,34 +45,77 @@ def render_ems(cfg, df_ems, kpis):
     st.dataframe(df_ems, use_container_width=True)
 
     st.markdown("<hr style='border-color: #26354D;'>", unsafe_allow_html=True)
-    st.markdown("<h3 style='color: #00B8FF;'>Respaldo Matemático Dinámico</h3>", unsafe_allow_html=True)
+    st.markdown("<h3 style='color: #00B8FF;'>Respaldo Matemático y Desglose Paso a Paso</h3>", unsafe_allow_html=True)
+    st.markdown("<p style='color: #94A3B8; font-size: 14px;'>Selecciona o expande cualquier fórmula para ver la sustitución de variables en tiempo real según la configuración actual.</p>", unsafe_allow_html=True)
     
     c1, c2 = st.columns(2)
+    
+    # --- COLUMNA 1: PEAK SHAVING Y SOC ---
     with c1:
-        st.markdown("<p style='color: #00D084; font-weight: bold;'>1. Balance de Potencia y Peak Shaving</p>", unsafe_allow_html=True)
+        st.markdown("<p style='color: #00D084; font-weight: bold;'>1. Balance de Potencia y Recorte de Picos (Peak Shaving)</p>", unsafe_allow_html=True)
         st.latex(r"P_{red}(t) = P_{carga}(t) - P_{pv}(t) - P_{bat}(t)")
-        st.markdown(f"<p style='color: #94A3B8; font-size: 14px;'>Si la demanda teórica supera el límite configurado ({cfg['p_lim']} kW), la batería inyecta potencia recortando el consumo:</p>", unsafe_allow_html=True)
-        st.latex(r"P_{bat} = \min(P_{teorica} - P_{lim}, E_{bat} - SOC_{min})")
-        st.markdown(f"<div class='kpi-card' style='padding: 15px; margin-top: 10px;'><span style='color: #00B8FF; font-weight: bold;'>Estado Actual:</span><br><span style='color:#94A3B8; font-size:13px;'>Demanda máxima registrada: <b>{kpis['demanda_max']:.1f} kW</b>.<br>Energía de reserva operativa: <b>{kpis['soc_min']:.1f} kWh</b>.</span></div>", unsafe_allow_html=True)
         
-        st.markdown("<p style='color: #00D084; font-weight: bold; margin-top: 20px;'>2. Estado de Carga (SOC)</p>", unsafe_allow_html=True)
-        st.latex(r"SOC(\%) = \left( \frac{E_{bat\_actual}}{C_{bat\_total}} \right) \times 100")
-        st.markdown(f"<div class='kpi-card' style='padding: 15px; margin-top: 10px;'><span style='color: #00B8FF; font-weight: bold;'>Estado Actual:</span><br><span style='color:#94A3B8; font-size:13px;'>Capacidad de almacenamiento (C_bat_total): <b>{cfg['c_bat']:.1f} kWh</b>.</span></div>", unsafe_allow_html=True)
+        with st.expander("🔍 Ver proceso de cálculo del Peak Shaving paso a paso", expanded=True):
+            p_bruta_pico = kpis['demanda_max']
+            p_limite = cfg['p_lim']
+            req_pico = max(0.0, p_bruta_pico - p_limite)
+            
+            st.markdown(f"""
+            * **Paso 1 (Obtener Demanda Pico):** La demanda bruta máxima registrada es de **{p_bruta_pico:.2f} kW**.
+            * **Paso 2 (Establecer Límite EMS):** El límite operativo configurado es **{p_limite:.2f} kW**.
+            * **Paso 3 (Calcular Requerimiento BESS):**
+              $$P_{{req}} = P_{{bruta}} - P_{{limite}} = {p_bruta_pico:.2f} - {p_limite:.2f} = {req_pico:.2f} \text{ kW}$$
+            * **Paso 4 (Potencia Final de Red):**
+              $$P_{{red}} = {p_bruta_pico:.2f} - {req_pico:.2f} = {p_bruta_pico - req_pico:.2f} \text{ kW}$$
+            """)
 
+        st.markdown("<p style='color: #00D084; font-weight: bold; margin-top: 20px;'>2. Estado de Carga Mínimo (SOC)</p>", unsafe_allow_html=True)
+        st.latex(r"SOC_{min}(kWh) = C_{bat\_total} \times \frac{\%SOC_{min}}{100}")
+        
+        with st.expander("🔍 Ver proceso de cálculo de Reserva de Batería"):
+            c_bat_total = cfg['c_bat']
+            soc_min_kwh = kpis['soc_min']
+            
+            st.markdown(f"""
+            * **Paso 1 (Capacidad Nominal):** BESS total de **{c_bat_total:.2f} kWh**.
+            * **Paso 2 (Límite Mínimo 20%):**
+              $$SOC_{{min}} = {c_bat_total:.2f} \times 0.20 = {soc_min_kwh:.2f} \text{ kWh}$$
+            * **Resultado:** La batería nunca se descargará por debajo de **{soc_min_kwh:.2f} kWh** para preservar su vida útil.
+            """)
+
+    # --- COLUMNA 2: CONTROL VOLT/VAR ---
     with c2:
-        st.markdown("<p style='color: #00D084; font-weight: bold;'>3. Control Volt/VAR (IEEE 2800)</p>", unsafe_allow_html=True)
-        st.markdown(f"<p style='color: #94A3B8; font-size: 14px;'>Cálculo dinámico de reactivos considerando capacidad del inversor (S_inv = {kpis['inv_req']:.1f} kVA):</p>", unsafe_allow_html=True)
+        st.markdown("<p style='color: #00D084; font-weight: bold;'>3. Capacidad Reactiva Máxima (Q_max - IEEE 2800)</p>", unsafe_allow_html=True)
         st.latex(r"Q_{max} = \sqrt{S_{inv}^2 - P_{activa}^2}")
         
-        st.markdown("<p style='color: #94A3B8; font-size: 14px;'>Compensación por caída de tensión (V < 0.98 p.u.):</p>", unsafe_allow_html=True)
-        st.latex(r"Q_{inyectada} = \min\left[ (0.98 - V_{actual}) \times (S_{inv} \times 2), Q_{max} \right]")
+        # Tomamos datos del pico de inyección de batería
+        p_activa_pico = kpis['demanda_recortada'] # Potencia en hora pico
+        s_inv_val = kpis['inv_req']
+        q_max_calc = np.sqrt(max(0, s_inv_val**2 - p_activa_pico**2))
         
-        st.markdown("<p style='color: #94A3B8; font-size: 14px;'>Compensación por sobretensión (V > 1.02 p.u.):</p>", unsafe_allow_html=True)
-        st.latex(r"Q_{absorbida} = \max\left[ -(V_{actual} - 1.02) \times (S_{inv} \times 2), -Q_{max} \right]")
+        with st.expander("🔍 Ver proceso de cálculo de Reserva Reactiva paso a paso", expanded=True):
+            st.markdown(f"""
+            * **Paso 1 (Capacidad del Inversor):** $S_{{inv}} = {s_inv_val:.2f} \text{ kVA}$.
+            * **Paso 2 (Inyección Activa Actual):** $P_{{activa}} = {p_activa_pico:.2f} \text{ kW}$.
+            * **Paso 3 (Sustitución):**
+              $$Q_{{max}} = \sqrt{{({s_inv_val:.2f})^2 - ({p_activa_pico:.2f})^2}}$$
+              $$Q_{{max}} = \sqrt{{{s_inv_val**2:.2f} - {p_activa_pico**2:.2f}}} = \mathbf{{{q_max_calc:.2f} \text{{ kVAR}}}}$$
+            """)
+
+        st.markdown("<p style='color: #00D084; font-weight: bold; margin-top: 20px;'>4. Control Dinámico de Tensión (Droop Volt/VAR)</p>", unsafe_allow_html=True)
+        st.latex(r"Q_{inyectada} = \min\left[ (0.98 - V_{actual}) \times (S_{inv} \times 2), \; Q_{max} \right]")
         
-        q_iny_max = df_ems['Q_inyectada'].max()
         v_min_reg = df_ems['V_pu'].min()
-        st.markdown(f"<div class='kpi-card' style='padding: 15px; margin-top: 10px;'><span style='color: #00B8FF; font-weight: bold;'>Resultados del Escenario:</span><br><span style='color:#94A3B8; font-size:13px;'>Voltaje mínimo detectado: <b>{v_min_reg:.3f} p.u.</b><br>Inyección reactiva máx.: <b>{q_iny_max:.1f} kVAR</b>.</span></div>", unsafe_allow_html=True)
+        q_iny_max = df_ems['Q_inyectada'].max()
+        
+        with st.expander("🔍 Ver proceso de cálculo de Compensación Volt/VAR"):
+            st.markdown(f"""
+            * **Paso 1 (Tensión Mínima Detectada):** $V_{{actual}} = {v_min_reg:.3f} \text{ p.u.}$ (caída por debajo del umbral 0.98 p.u.).
+            * **Paso 2 (Requerimiento de Control):**
+              $$Q_{{req}} = (0.98 - {v_min_reg:.3f}) \times ({s_inv_val:.2f} \times 2) = {(0.98 - v_min_reg) * (s_inv_val * 2):.2f} \text{ kVAR}$$
+            * **Paso 3 (Aplicación de Límite $Q_{{max}}$):**
+              $$Q_{{inyectada}} = \min({(0.98 - v_min_reg) * (s_inv_val * 2):.2f}, {q_max_calc:.2f}) = \mathbf{{{q_iny_max:.1f} \text{{ kVAR}}}}$$
+            """)
 
 
 def render_transitorios():
@@ -168,12 +211,10 @@ def render_unifilar(cfg, kpis):
         fig_sld.update_layout(height=600, margin=dict(l=0, r=0, t=10, b=10))
         st.plotly_chart(fig_sld, use_container_width=True)
 
-
 def render_memoria(cfg, kpis):
     st.markdown("<h3 style='color: #00B8FF;'>Generación de Memoria Técnica</h3>", unsafe_allow_html=True)
     st.markdown("<p style='color: #94A3B8;'>El documento Word (.docx) se genera respetando tu formato de ingeniería exacto.</p>", unsafe_allow_html=True)
     st.download_button("📄 DESCARGAR MEMORIA TÉCNICA (.DOCX)", generar_docx(cfg, kpis['inv_req']), f"Memoria_Tecnica_{cfg['nombre_proyecto'].replace(' ','_')}.docx", 'application/vnd.openxmlformats-officedocument.wordprocessingml.document')
-
 
 def render_exportaciones(cfg, df_ems, kpis):
     st.markdown("<h3 style='color: #00B8FF;'>Exportación de Datos y Código MATLAB</h3>", unsafe_allow_html=True)
