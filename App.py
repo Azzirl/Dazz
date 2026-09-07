@@ -16,7 +16,7 @@ if 'config' not in st.session_state:
         'ubicacion_proyecto': 'UPS Campus Centenario',
         'p_lim': 130.0, 'c_bat': 250.0, 'p_pv': 150.0, 'v_nom': 220.0, 's_trafo': 1000.0, 
         'carga_noc': 40.0, 'ps_activo': True,
-        'lat': -2.1833, 'lon': -79.8833  # Coordenadas por defecto (Guayaquil)
+        'lat': -2.1833, 'lon': -79.8833
     }
 
 cfg = st.session_state.config
@@ -35,7 +35,6 @@ if st.sidebar.button("🏠 Dashboard Principal"): st.session_state.page = "Dashb
 if st.sidebar.button("⚡ Análisis EMS (Peak Shaving)"): st.session_state.page = "EMS"
 if st.sidebar.button("📉 Análisis Dinámico (Transitorios)"): st.session_state.page = "Transitorios"
 if st.sidebar.button("📐 Diagrama Unifilar SCADA"): st.session_state.page = "Unifilar"
-if st.sidebar.button("📄 Memoria Técnica"): st.session_state.page = "Memoria"
 if st.sidebar.button("📦 Exportaciones"): st.session_state.page = "Exportaciones"
 
 estado_ps = "PEAK SHAVING ACTIVO" if cfg['ps_activo'] else "PEAK SHAVING INACTIVO"
@@ -66,7 +65,5 @@ elif st.session_state.page == "Transitorios":
     views.render_transitorios()
 elif st.session_state.page == "Unifilar":
     views.render_unifilar(cfg, kpis)
-elif st.session_state.page == "Memoria":
-    views.render_memoria(cfg, kpis)
 elif st.session_state.page == "Exportaciones":
     views.render_exportaciones(cfg, df_ems, kpis)
