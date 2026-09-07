@@ -1,5 +1,6 @@
 import streamlit as st
 import numpy as np
+import pandas as pd
 import plotly.graph_objects as go
 from core.ems_math import simular_evento_transitorio
 from utils.exports import generar_docx, generate_dxf_full, generar_codigo_matlab
@@ -7,16 +8,21 @@ from utils.exports import generar_docx, generate_dxf_full, generar_codigo_matlab
 def render_dashboard(cfg, df_ems, kpis):
     # --- MÓDULO DE GEOLOCALIZACIÓN Y TELEMETRÍA CLIMÁTICA ---
     st.markdown("<h3 style='color: #00B8FF; font-size:18px;'>📍 Geolocalización & Parámetros Climáticos Satelitales</h3>", unsafe_allow_html=True)
-    cg1, cg2 = st.columns(2)
-    with cg1:
+    
+    col_coords, col_mapa = st.columns([1.5, 2.5])
+    
+    with col_coords:
         cfg['lat'] = st.number_input("Latitud GPS", value=cfg.get('lat', -2.1833), format="%.4f")
-    with cg2:
         cfg['lon'] = st.number_input("Longitud GPS", value=cfg.get('lon', -79.8833), format="%.4f")
 
-    if kpis.get('es_api_real'):
-        st.success("📡 Telemetría Conectada: Obteniendo irradiancia en tiempo real vía API Satelital.")
-    else:
-        st.warning("⚠️ Sin conexión satelital: Utilizando perfil climático de respaldo (Fallback).")
+        if kpis.get('es_api_real'):
+            st.success("📡 Telemetría Conectada: Obteniendo irradiancia en tiempo real vía API Satelital.")
+        else:
+            st.warning("⚠️ Sin conexión satelital: Utilizando perfil climático de respaldo (Fallback).")
+
+    with col_mapa:
+        df_ubicacion = pd.DataFrame({'lat': [cfg['lat']], 'lon': [cfg['lon']]})
+        st.map(df_ubicacion, zoom=11, use_container_width=True)
 
     st.markdown("<br>", unsafe_allow_html=True)
     st.markdown("<div class='config-header'>Configuración Avanzada del EMS</div>", unsafe_allow_html=True)
