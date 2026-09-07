@@ -7,6 +7,7 @@ from core.ems_math import simular_evento_transitorio
 from utils.exports import generate_dxf_full, generar_codigo_matlab
 
 def render_dashboard(cfg, df_ems, kpis):
+    # --- MÓDULO DE GEOLOCALIZACIÓN Y TELEMETRÍA CLIMÁTICA ---
     st.markdown("<h3 style='color: #00B8FF; font-size:18px;'>📍 Geolocalización & Parámetros Climáticos Satelitales</h3>", unsafe_allow_html=True)
     
     col_coords, col_mapa = st.columns([1.5, 2.5])
@@ -98,7 +99,23 @@ def render_dashboard(cfg, df_ems, kpis):
     m3.markdown(f"""<div class="kpi-card"><div class="kpi-title">INVERSOR REQUERIDO</div><div class="kpi-value">{kpis['inv_req']:.0f} <span class="kpi-unit">kVA</span></div><div class="kpi-sub"><span>Capacidad Aparente</span> <span class="c-green">● Volt/VAR Activo</span></div></div>""", unsafe_allow_html=True)
     m4.markdown(f"""<div class="kpi-card"><div class="kpi-title">CARGABILIDAD TRAFO</div><div class="kpi-value">{kpis['carg_con']:.1f} <span class="kpi-unit">%</span></div><div class="kpi-sub"><span>Trafo {cfg['s_trafo']:.0f} kVA</span> <span class="{'c-green' if kpis['carg_con'] < 85 else 'c-red'}">● {'NORMAL' if kpis['carg_con'] < 85 else 'ALERTA'}</span></div></div>""", unsafe_allow_html=True)
 
-    st.markdown("<h3 style='color:#F8FAFC; margin-top:20px; font-size:22px; font-weight:600;'>Monitoreo de Potencia y Generación PV (24h)</h3>", unsafe_allow_html=True)
+    # --- MÓDULO DE IMPACTO AMBIENTAL ---
+    st.markdown("<h3 style='color:#00D084; margin-top:30px; font-size:18px; font-weight:600;'>🌱 Mitigación Ambiental y Sostenibilidad</h3>", unsafe_allow_html=True)
+    
+    # Cálculos ambientales (0.45 kg CO2/kWh como factor de red estándar)
+    energia_pv_diaria = df_ems['P_PV'].sum()
+    co2_factor = 0.45 
+    co2_evitado_diario = energia_pv_diaria * co2_factor
+    co2_evitado_anual_ton = (co2_evitado_diario * 365) / 1000
+    arboles_equivalentes = int(co2_evitado_anual_ton * 40) # Aprox 40 árboles absorben 1 ton CO2 al año
+    
+    e1, e2, e3 = st.columns(3)
+    e1.markdown(f"""<div class="kpi-card" style="border-top: 3px solid #FFB020;"><div class="kpi-title">PRODUCCIÓN FOTOVOLTAICA</div><div class="kpi-value">{energia_pv_diaria:.1f} <span class="kpi-unit">kWh/día</span></div><div class="kpi-sub"><span style="color:#FFB020;">● Energía 100% Renovable</span></div></div>""", unsafe_allow_html=True)
+    e2.markdown(f"""<div class="kpi-card" style="border-top: 3px solid #00D084;"><div class="kpi-title">MITIGACIÓN DE CO₂ (ANUAL)</div><div class="kpi-value">{co2_evitado_anual_ton:.1f} <span class="kpi-unit">tCO₂</span></div><div class="kpi-sub"><span style="color:#00D084;">● {co2_evitado_diario:.1f} kg CO₂ diarios evitados</span></div></div>""", unsafe_allow_html=True)
+    e3.markdown(f"""<div class="kpi-card" style="border-top: 3px solid #00D084;"><div class="kpi-title">COMPENSACIÓN ECOLÓGICA</div><div class="kpi-value">{arboles_equivalentes} <span class="kpi-unit">Árboles</span></div><div class="kpi-sub"><span style="color:#00D084;">● Absorción anual equivalente</span></div></div>""", unsafe_allow_html=True)
+
+
+    st.markdown("<h3 style='color:#F8FAFC; margin-top:30px; font-size:22px; font-weight:600;'>Monitoreo de Potencia y Generación PV (24h)</h3>", unsafe_allow_html=True)
     fig = go.Figure()
     fig.add_trace(go.Scatter(x=df_ems['Hora'], y=df_ems['P_Carga'], name='Demanda Bruta (kW)', line=dict(color='#00B8FF', width=2)))
     fig.add_trace(go.Scatter(x=df_ems['Hora'], y=df_ems['P_Red'], name='Consumo Red (kW)', fill='tozeroy', line=dict(color='#00D084', width=2)))
