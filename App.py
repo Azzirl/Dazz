@@ -12,9 +12,11 @@ if 'page' not in st.session_state:
 
 if 'config' not in st.session_state:
     st.session_state.config = {
-        'nombre_proyecto': 'EMS Bloque D', 'ubicacion_proyecto': 'UPS Campus Centenario',
+        'nombre_proyecto': 'EMS Bloque D', 
+        'ubicacion_proyecto': 'UPS Campus Centenario',
         'p_lim': 130.0, 'c_bat': 250.0, 'p_pv': 150.0, 'v_nom': 220.0, 's_trafo': 1000.0, 
-        'carga_noc': 40.0, 'ps_activo': True
+        'carga_noc': 40.0, 'ps_activo': True,
+        'lat': -2.1833, 'lon': -79.8833  # Coordenadas por defecto (Guayaquil)
     }
 
 cfg = st.session_state.config
