@@ -35,6 +35,7 @@ if st.sidebar.button("🏠 Dashboard Principal"): st.session_state.page = "Dashb
 if st.sidebar.button("⚡ Análisis EMS (Peak Shaving)"): st.session_state.page = "EMS"
 if st.sidebar.button("📉 Análisis Dinámico (Transitorios)"): st.session_state.page = "Transitorios"
 if st.sidebar.button("📐 Diagrama Unifilar SCADA"): st.session_state.page = "Unifilar"
+if st.sidebar.button("💰 Análisis Financiero & Matriz"): st.session_state.page = "Financiero"
 if st.sidebar.button("📦 Exportaciones"): st.session_state.page = "Exportaciones"
 
 estado_ps = "PEAK SHAVING ACTIVO" if cfg['ps_activo'] else "PEAK SHAVING INACTIVO"
@@ -46,7 +47,7 @@ st.markdown(f"""
 </div>
 """, unsafe_allow_html=True)
 
-if st.session_state.page in ["Dashboard", "EMS", "Transitorios", "Unifilar"]:
+if st.session_state.page in ["Dashboard", "EMS", "Transitorios", "Unifilar", "Financiero"]:
     c1, c2, c3 = st.columns(3)
     if c1.button("▶ EJECUTAR SIMULACIÓN", type="primary", use_container_width=True): st.toast("Simulación Completada")
     if c2.button("↻ RECALCULAR", use_container_width=True): st.rerun()
@@ -65,5 +66,7 @@ elif st.session_state.page == "Transitorios":
     views.render_transitorios()
 elif st.session_state.page == "Unifilar":
     views.render_unifilar(cfg, kpis)
+elif st.session_state.page == "Financiero":
+    views.render_financiero_y_comparativa(cfg, df_ems, kpis)
 elif st.session_state.page == "Exportaciones":
     views.render_exportaciones(cfg, df_ems, kpis)
