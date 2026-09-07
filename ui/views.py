@@ -16,15 +16,13 @@ def render_dashboard(cfg, df_ems, kpis):
         cfg['lat'] = st.number_input("Latitud GPS", value=cfg.get('lat', -2.1833), format="%.4f")
         cfg['lon'] = st.number_input("Longitud GPS", value=cfg.get('lon', -79.8833), format="%.4f")
 
-        # Selector de tipo/estilo de mapa
         estilo_mapa = st.selectbox(
             "Estilo de Mapa",
-            ["Oscuro (SCADA Dark)", "Claro (Light)", "Callejero", "Satelital"],
+            ["Satelital (HD Esri)", "Oscuro (SCADA Dark)", "Claro (Light)", "Callejero"],
             index=0
         )
         
-        # Selector de nivel de zoom para acercamiento dinámico
-        zoom_nivel = st.slider("Nivel de Zoom", min_value=1, max_value=20, value=15)
+        zoom_nivel = st.slider("Nivel de Zoom", min_value=1, max_value=20, value=16)
 
         if kpis.get('es_api_real'):
             st.success("📡 Telemetría Conectada: Obteniendo irradiancia en tiempo real vía API Satelital.")
@@ -32,42 +30,53 @@ def render_dashboard(cfg, df_ems, kpis):
             st.warning("⚠️ Sin conexión satelital: Utilizando perfil climático de respaldo (Fallback).")
 
     with col_mapa:
-        # Mapeo de estilos de mapas
-        estilos_dict = {
-            "Oscuro (SCADA Dark)": pdk.map_styles.CARTO_DARK,
-            "Claro (Light)": pdk.map_styles.CARTO_LIGHT,
-            "Callejero": pdk.map_styles.ROAD,
-            "Satelital": "mapbox://styles/mapbox/satellite-v9"
-        }
-
-        # Estado de vista dinámico (se centra y enfoca exactamente en la coordenada configurada)
         view_state = pdk.ViewState(
             latitude=cfg['lat'],
             longitude=cfg['lon'],
             zoom=zoom_nivel,
-            pitch=45,
+            pitch=30 if estilo_mapa == "Satelital (HD Esri)" else 45,
             bearing=0
         )
 
-        # Capa de punto de la microred (Marker con resplandor cyan)
         capa_punto = pdk.Layer(
             "ScatterplotLayer",
             data=pd.DataFrame({'lat': [cfg['lat']], 'lon': [cfg['lon']], 'nombre': [cfg['nombre_proyecto']]}),
             get_position='[lon, lat]',
-            get_color='[0, 184, 255, 200]',
-            get_radius=50,
+            get_color='[0, 184, 255, 240]',
+            get_radius=30,
             radius_min_pixels=8,
-            radius_max_pixels=25,
+            radius_max_pixels=22,
             pickable=True
         )
 
-        # Renderizado interactivo con PyDeck
-        st.pydeck_chart(pdk.Deck(
-            map_style=estilos_dict[estilo_mapa],
-            initial_view_state=view_state,
-            layers=[capa_punto],
-            tooltip={"text": "⚡ {nombre}\nLat: {lat}, Lon: {lon}"}
-        ), use_container_width=True)
+        if estilo_mapa == "Satelital (HD Esri)":
+            capa_satelital = pdk.Layer(
+                "TileLayer",
+                data="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
+                min_zoom=0,
+                max_zoom=19,
+                tile_size=256,
+            )
+            deck = pdk.Deck(
+                map_style=None,
+                initial_view_state=view_state,
+                layers=[capa_satelital, capa_punto],
+                tooltip={"text": "⚡ {nombre}\nLat: {lat}, Lon: {lon}"}
+            )
+        else:
+            estilos_dict = {
+                "Oscuro (SCADA Dark)": pdk.map_styles.CARTO_DARK,
+                "Claro (Light)": pdk.map_styles.CARTO_LIGHT,
+                "Callejero": pdk.map_styles.ROAD
+            }
+            deck = pdk.Deck(
+                map_style=estilos_dict.get(estilo_mapa, pdk.map_styles.CARTO_DARK),
+                initial_view_state=view_state,
+                layers=[capa_punto],
+                tooltip={"text": "⚡ {nombre}\nLat: {lat}, Lon: {lon}"}
+            )
+
+        st.pydeck_chart(deck, use_container_width=True)
 
     st.markdown("<br>", unsafe_allow_html=True)
     st.markdown("<div class='config-header'>Configuración Avanzada del EMS</div>", unsafe_allow_html=True)
