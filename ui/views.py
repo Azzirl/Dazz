@@ -34,6 +34,7 @@ def render_dashboard(cfg, df_ems, kpis):
     fig.update_layout(height=400, margin=dict(l=10, r=10, t=20, b=10))
     st.plotly_chart(fig, use_container_width=True)
 
+
 def render_ems(cfg, df_ems, kpis):
     st.markdown("<h3 style='color: #00B8FF;'>Análisis EMS y Despacho de Baterías</h3>", unsafe_allow_html=True)
     fig_soc = go.Figure()
@@ -56,22 +57,23 @@ def render_ems(cfg, df_ems, kpis):
         
         st.markdown("<p style='color: #00D084; font-weight: bold; margin-top: 20px;'>2. Estado de Carga (SOC)</p>", unsafe_allow_html=True)
         st.latex(r"SOC(\%) = \left( \frac{E_{bat\_actual}}{C_{bat\_total}} \right) \times 100")
-        st.markdown(f"<div class='kpi-card' style='padding: 15px; margin-top: 10px;'><span style='color: #00B8FF; font-weight: bold;'>Estado Actual:</span><br><span style='color:#94A3B8; font-size:13px;'>Capacidad de almacenamiento ($C_{{bat\_total}}$): <b>{cfg['c_bat']:.1f} kWh</b>.</span></div>", unsafe_allow_html=True)
+        st.markdown(f"<div class='kpi-card' style='padding: 15px; margin-top: 10px;'><span style='color: #00B8FF; font-weight: bold;'>Estado Actual:</span><br><span style='color:#94A3B8; font-size:13px;'>Capacidad de almacenamiento (C_bat_total): <b>{cfg['c_bat']:.1f} kWh</b>.</span></div>", unsafe_allow_html=True)
 
     with c2:
         st.markdown("<p style='color: #00D084; font-weight: bold;'>3. Control Volt/VAR (IEEE 2800)</p>", unsafe_allow_html=True)
-        st.markdown(f"<p style='color: #94A3B8; font-size: 14px;'>Cálculo dinámico de reactivos considerando capacidad del inversor ($S_{{inv}}$ = {kpis['inv_req']:.1f} kVA):</p>", unsafe_allow_html=True)
+        st.markdown(f"<p style='color: #94A3B8; font-size: 14px;'>Cálculo dinámico de reactivos considerando capacidad del inversor (S_inv = {kpis['inv_req']:.1f} kVA):</p>", unsafe_allow_html=True)
         st.latex(r"Q_{max} = \sqrt{S_{inv}^2 - P_{activa}^2}")
         
-        st.markdown("<p style='color: #94A3B8; font-size: 14px;'>Compensación por caída de tensión ($V < 0.98 \text{ p.u.}$):</p>", unsafe_allow_html=True)
+        st.markdown("<p style='color: #94A3B8; font-size: 14px;'>Compensación por caída de tensión (V < 0.98 p.u.):</p>", unsafe_allow_html=True)
         st.latex(r"Q_{inyectada} = \min\left[ (0.98 - V_{actual}) \times (S_{inv} \times 2), Q_{max} \right]")
         
-        st.markdown("<p style='color: #94A3B8; font-size: 14px;'>Compensación por sobretensión ($V > 1.02 \text{ p.u.}$):</p>", unsafe_allow_html=True)
+        st.markdown("<p style='color: #94A3B8; font-size: 14px;'>Compensación por sobretensión (V > 1.02 p.u.):</p>", unsafe_allow_html=True)
         st.latex(r"Q_{absorbida} = \max\left[ -(V_{actual} - 1.02) \times (S_{inv} \times 2), -Q_{max} \right]")
         
         q_iny_max = df_ems['Q_inyectada'].max()
         v_min_reg = df_ems['V_pu'].min()
         st.markdown(f"<div class='kpi-card' style='padding: 15px; margin-top: 10px;'><span style='color: #00B8FF; font-weight: bold;'>Resultados del Escenario:</span><br><span style='color:#94A3B8; font-size:13px;'>Voltaje mínimo detectado: <b>{v_min_reg:.3f} p.u.</b><br>Inyección reactiva máx.: <b>{q_iny_max:.1f} kVAR</b>.</span></div>", unsafe_allow_html=True)
+
 
 def render_transitorios():
     st.markdown("<h3 style='color: #00B8FF;'>Análisis de Estabilidad Dinámica y Fallas (IEEE 2800 / ARCONEL-001/24)</h3>", unsafe_allow_html=True)
@@ -101,6 +103,7 @@ def render_transitorios():
         st.info("Diagnóstico: Caída de irradiancia a 0 W/m² en t=2.0s. El inversor ajusta la potencia de salida sin comprometer los límites de voltaje continuo.")
     elif evento_seleccionado == "Variación de Carga":
         st.info("Diagnóstico: Variación abrupta de carga en t=2.0s. Se generan oscilaciones en frecuencia que son amortiguadas por el EMS dentro del margen permisible de 58.8 Hz a 61.2 Hz.")
+
 
 def render_unifilar(cfg, kpis):
     st.markdown("<h3 style='color: #00B8FF;'>Diagrama Unifilar Jerárquico (Interfaz SCADA)</h3>", unsafe_allow_html=True)
@@ -165,10 +168,12 @@ def render_unifilar(cfg, kpis):
         fig_sld.update_layout(height=600, margin=dict(l=0, r=0, t=10, b=10))
         st.plotly_chart(fig_sld, use_container_width=True)
 
+
 def render_memoria(cfg, kpis):
     st.markdown("<h3 style='color: #00B8FF;'>Generación de Memoria Técnica</h3>", unsafe_allow_html=True)
     st.markdown("<p style='color: #94A3B8;'>El documento Word (.docx) se genera respetando tu formato de ingeniería exacto.</p>", unsafe_allow_html=True)
     st.download_button("📄 DESCARGAR MEMORIA TÉCNICA (.DOCX)", generar_docx(cfg, kpis['inv_req']), f"Memoria_Tecnica_{cfg['nombre_proyecto'].replace(' ','_')}.docx", 'application/vnd.openxmlformats-officedocument.wordprocessingml.document')
+
 
 def render_exportaciones(cfg, df_ems, kpis):
     st.markdown("<h3 style='color: #00B8FF;'>Exportación de Datos y Código MATLAB</h3>", unsafe_allow_html=True)
