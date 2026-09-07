@@ -59,7 +59,7 @@ if st.session_state.page in ["Dashboard", "EMS", "Transitorios", "Unifilar"]:
 if st.session_state.page == "Dashboard":
     views.render_dashboard(cfg, df_ems, kpis)
 elif st.session_state.page == "EMS":
-    views.render_ems(df_ems)
+    views.render_ems(cfg, df_ems, kpis)
 elif st.session_state.page == "Transitorios":
     views.render_transitorios()
 elif st.session_state.page == "Unifilar":
