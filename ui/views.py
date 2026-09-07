@@ -95,7 +95,7 @@ def render_dashboard(cfg, df_ems, kpis):
         cfg['p_pv'] = st.slider("Potencia PV (kWp)", 0.0, 300.0, cfg['p_pv'], 10.0)
         cfg['carga_noc'] = st.slider("Carga Nocturna BESS (kW)", 10.0, 100.0, cfg['carga_noc'], 5.0)
 
-    # LECTURA SEGURA DE KPIS (PREVIENE CUALQUIER KEYERROR)
+    # LECTURA SEGURA DE KPIS
     d_max = kpis.get('demanda_max', 179.1)
     d_rec = kpis.get('demanda_recortada', 130.0)
     soc_m = kpis.get('soc_min_kwh', kpis.get('soc_min', 50.0))
@@ -232,29 +232,92 @@ def render_unifilar(cfg, kpis):
     st.markdown("<h3 style='color: #00B8FF;'>Diagrama Unifilar Jerárquico (Interfaz SCADA)</h3>", unsafe_allow_html=True)
     c_left, c_right = st.columns([1.5, 3.5])
     
+    carg_c = kpis.get('carg_con_ems', kpis.get('carg_con', 13.0))
+    inv_k = kpis.get('inv_kva', kpis.get('inv_req', 157.9))
+
     with c_left:
-        st.markdown("<p style='font-size:16px; font-weight:700;'>Equipos</p>", unsafe_allow_html=True)
-        eq = st.radio("Sel:", ["Transformador", "BESS", "Inversor", "Arreglo PV", "Red CNEL", "TGBT", "Cargas Bloque D"], label_visibility="collapsed")
-        carg_c = kpis.get('carg_con_ems', kpis.get('carg_con', 13.0))
+        st.markdown("<p style='font-size:16px; font-weight:700;'>Seleccionar Equipo en SCADA:</p>", unsafe_allow_html=True)
+        eq = st.radio(
+            "Sel:", 
+            ["Transformador", "BESS", "Inversor", "Arreglo PV", "Red CNEL", "TGBT", "Cargas Bloque D"], 
+            index=1,
+            label_visibility="collapsed"
+        )
         
         if eq == "Transformador":
-            st.markdown(f"""<div class="kpi-card" style="border-top:3px solid #FFFFFF;"><h4 style="color:#FFFFFF; margin-top:0;">⚡ TRANSFORMADOR</h4><div style="font-size:14px; line-height:2.0;"><b>Capacidad:</b> {cfg['s_trafo']} kVA<br><b>Tensión:</b> 69 kV / {cfg['v_nom']/1000} kV<br><b>Carga Actual:</b> {carg_c:.1f} %<br><span class="c-green">● NORMAL</span></div></div>""", unsafe_allow_html=True)
+            st.markdown(f"""<div class="kpi-card" style="border-top:3px solid #00B8FF;"><h4 style="color:#FFFFFF; margin-top:0;">⚡ TRANSFORMADOR PRINCIPAL</h4><div style="font-size:14px; line-height:2.0;"><b>Capacidad Nominal:</b> {cfg['s_trafo']:.0f} kVA<br><b>Tensión:</b> 13.8 kV / {cfg['v_nom']:.0f} V<br><b>Impedancia (Z%):</b> 5.75%<br><b>Cargabilidad Actual:</b> {carg_c:.1f} %<br><span class="c-green">● ESTADO: NORMAL</span></div></div>""", unsafe_allow_html=True)
         elif eq == "BESS":
-            st.markdown(f"""<div class="kpi-card" style="border-top:3px solid #FFFFFF;"><h4 style="color:#FFFFFF; margin-top:0;">🔋 BANCO BESS</h4><div style="font-size:14px; line-height:2.0;"><b>Capacidad:</b> {cfg['c_bat']} kWh<br><b>Tecnología:</b> LiFePO4<br><span class="c-green">● ONLINE</span></div></div>""", unsafe_allow_html=True)
-        else:
-            st.markdown(f"""<div class="kpi-card" style="border-top:3px solid #FFFFFF;"><h4 style="color:#FFFFFF; margin-top:0;">{eq.upper()}</h4><div style="font-size:14px; line-height:2.0;"><span class="c-green">● ESTADO: OPERATIVO</span></div></div>""", unsafe_allow_html=True)
+            st.markdown(f"""<div class="kpi-card" style="border-top:3px solid #00D084;"><h4 style="color:#FFFFFF; margin-top:0;">🔋 BANCO DE BATERÍAS (BESS)</h4><div style="font-size:14px; line-height:2.0;"><b>Capacidad:</b> {cfg['c_bat']:.0f} kWh<br><b>Tecnología:</b> LiFePO4 @ DoD 80%<br><b>Reserva Mínima (SOC):</b> 20% ({cfg['c_bat']*0.2:.0f} kWh)<br><b>Carga Nocturna:</b> {cfg['carga_noc']:.0f} kW<br><span class="c-green">● ESTADO: ONLINE</span></div></div>""", unsafe_allow_html=True)
+        elif eq == "Inversor":
+            st.markdown(f"""<div class="kpi-card" style="border-top:3px solid #A855F7;"><h4 style="color:#FFFFFF; margin-top:0;">⚡ INVERSOR BIDIRECCIONAL IBR</h4><div style="font-size:14px; line-height:2.0;"><b>Capacidad Aparente (S_inv):</b> {inv_k:.1f} kVA<br><b>Eficiencia Inversor:</b> 95%<br><b>Soporte Reactivo:</b> Volt/VAR Activo (IEEE 2800)<br><b>THD Corriente:</b> < 5% (IEEE 1547)<br><span class="c-green">● ESTADO: OPERATIVO</span></div></div>""", unsafe_allow_html=True)
+        elif eq == "Arreglo PV":
+            st.markdown(f"""<div class="kpi-card" style="border-top:3px solid #FFB020;"><h4 style="color:#FFFFFF; margin-top:0;">☀️ ARREGLO FOTOVOLTAICO</h4><div style="font-size:14px; line-height:2.0;"><b>Potencia Instalada:</b> {cfg['p_pv']:.0f} kWp<br><b>Tecnología:</b> Silicio Módulos PERC<br><b>Eficiencia Sistema:</b> 80% (Pérdidas térmicas/cables)<br><b>Telemetría:</b> API Satelital Open-Meteo<br><span class="c-green">● ESTADO: GENERANDO</span></div></div>""", unsafe_allow_html=True)
+        elif eq == "Red CNEL":
+            st.markdown(f"""<div class="kpi-card" style="border-top:3px solid #00B8FF;"><h4 style="color:#FFFFFF; margin-top:0;">🌐 RED ELÉCTRICA (CNEL EP)</h4><div style="font-size:14px; line-height:2.0;"><b>Tensión Media Tensión:</b> 13.8 kV<br><b>Frecuencia Nominal:</b> 60.0 Hz<br><b>Límite Set-Point EMS:</b> {cfg['p_lim']:.0f} kW<br><b>Modo EMS:</b> {'PEAK SHAVING ACTIVO' if cfg['ps_activo'] else 'DESACTIVADO'}<br><span class="c-green">● CONEXIÓN SÍNCRONA ESTABLE</span></div></div>""", unsafe_allow_html=True)
+        elif eq == "TGBT":
+            st.markdown(f"""<div class="kpi-card" style="border-top:3px solid #00B8FF;"><h4 style="color:#FFFFFF; margin-top:0;">🏢 TABLERO GENERAL (TGBT)</h4><div style="font-size:14px; line-height:2.0;"><b>Tensión Bus BT:</b> {cfg['v_nom']:.0f} V L-L / {cfg['v_nom']/np.sqrt(3):.0f} V L-N<br><b>Tolerancia Tensión:</b> 0.90 – 1.05 p.u. (ARCONEL)<br><b>Icc Asimétrica Calculada:</b> {kpis.get('datos_icc', {}).get('icc_asim_kA', 15.0):.2f} kA<br><b>Capacidad Disyuntor (AIC):</b> 50.0 kA<br><span class="c-green">● CUMPLE PROTECCIÓN NEC 110-9</span></div></div>""", unsafe_allow_html=True)
+        elif eq == "Cargas Bloque D":
+            st.markdown(f"""<div class="kpi-card" style="border-top:3px solid #FF4D5A;"><h4 style="color:#FFFFFF; margin-top:0;">🏬 CARGAS EDIFICIO D (LABS)</h4><div style="font-size:14px; line-height:2.0;"><b>Demanda Pico Registrada:</b> {kpis.get('demanda_max', 179.1):.1f} kW<br><b>Demanda Recortada EMS:</b> {kpis.get('demanda_recortada', 130.0):.1f} kW<br><b>Ubicación:</b> UPS Campus Centenario<br><span class="c-green">● SUMINISTRO CONTINUO A LABORARIOS</span></div></div>""", unsafe_allow_html=True)
 
     with c_right:
+        # Colores dinámicos de resaltado al seleccionar
+        hl_color = '#FFFFFF'
+        col_cnel = hl_color if eq == "Red CNEL" else '#00B8FF'
+        col_trafo = hl_color if eq == "Transformador" else '#00B8FF'
+        col_tgbt = hl_color if eq == "TGBT" else '#00B8FF'
+        col_carga = hl_color if eq == "Cargas Bloque D" else '#FF4D5A'
+        col_inv = hl_color if eq == "Inversor" else '#A855F7'
+        col_pv = hl_color if eq == "Arreglo PV" else '#FFB020'
+        col_bess = hl_color if eq == "BESS" else '#00D084'
+
         fig_sld = go.Figure()
-        fig_sld.update_xaxes(visible=False, range=[-120, 120]); fig_sld.update_yaxes(visible=False, range=[-80, 220])
-        fig_sld.add_trace(go.Scatter(x=[0, 0], y=[200, 150], mode='lines', line=dict(color='#00B8FF', width=2), showlegend=False))
-        fig_sld.add_annotation(x=30, y=190, text="RED CNEL 13.8 kV", showarrow=False, font=dict(size=12, color='#00B8FF'))
-        fig_sld.add_shape(type="circle", x0=-12, y0=115, x1=12, y1=145, line_color='#00B8FF', line_width=2)
-        fig_sld.add_shape(type="circle", x0=-12, y0=95, x1=12, y1=125, line_color='#00B8FF', line_width=2)
-        fig_sld.add_annotation(x=45, y=120, text=f"TRAFO {cfg['s_trafo']} kVA", showarrow=False, font=dict(size=12, color='#00B8FF'))
-        fig_sld.add_trace(go.Scatter(x=[-90, 90], y=[40, 40], mode='lines', line=dict(color='#00B8FF', width=4), showlegend=False))
-        fig_sld.add_annotation(x=0, y=47, text=f"BUS TGBT {cfg['v_nom']}V", showarrow=False, font=dict(size=13, color='#00B8FF', weight="bold"))
-        fig_sld.update_layout(height=600, margin=dict(l=0, r=0, t=10, b=10))
+        fig_sld.update_xaxes(visible=False, range=[-110, 110])
+        fig_sld.update_yaxes(visible=False, range=[-75, 215])
+
+        # 1. Red CNEL (MT 13.8 kV)
+        fig_sld.add_trace(go.Scatter(x=[0, 0], y=[200, 145], mode='lines', line=dict(color=col_cnel, width=5 if eq == "Red CNEL" else 2.5), showlegend=False))
+        fig_sld.add_annotation(x=35, y=190, text="RED CNEL 13.8 kV", showarrow=False, font=dict(size=12, color=col_cnel, weight="bold"))
+
+        # 2. Transformador (Dos círculos superpuestos)
+        fig_sld.add_shape(type="circle", x0=-14, y0=115, x1=14, y1=145, line_color=col_trafo, line_width=5 if eq == "Transformador" else 2.5)
+        fig_sld.add_shape(type="circle", x0=-14, y0=95, x1=14, y1=125, line_color=col_trafo, line_width=5 if eq == "Transformador" else 2.5)
+        fig_sld.add_annotation(x=55, y=120, text=f"TRAFO {cfg['s_trafo']:.0f} kVA", showarrow=False, font=dict(size=12, color=col_trafo, weight="bold"))
+
+        # 3. Conexión Trafo -> TGBT
+        fig_sld.add_trace(go.Scatter(x=[0, 0], y=[95, 40], mode='lines', line=dict(color=col_trafo, width=5 if eq == "Transformador" else 2.5), showlegend=False))
+
+        # 4. BUS TGBT (Barra Horizontal Principal)
+        fig_sld.add_trace(go.Scatter(x=[-90, 90], y=[40, 40], mode='lines', line=dict(color=col_tgbt, width=8 if eq == "TGBT" else 5), showlegend=False))
+        fig_sld.add_annotation(x=0, y=48, text=f"BUS TGBT {cfg['v_nom']:.0f}V", showarrow=False, font=dict(size=13, color=col_tgbt, weight="bold"))
+
+        # 5. Ramal Cargas Bloque D (Izquierda)
+        fig_sld.add_trace(go.Scatter(x=[-50, -50], y=[40, 0], mode='lines', line=dict(color=col_carga, width=5 if eq == "Cargas Bloque D" else 2.5), showlegend=False))
+        fig_sld.add_shape(type="rect", x0=-80, y0=-20, x1=-20, y1=0, line_color=col_carga, fillcolor='rgba(255,77,90,0.1)', line_width=4 if eq == "Cargas Bloque D" else 2)
+        fig_sld.add_annotation(x=-50, y=-10, text="CARGAS BLOQUE D", showarrow=False, font=dict(size=11, color=col_carga, weight="bold"))
+
+        # 6. Ramal Inversor IBR (Derecha)
+        fig_sld.add_trace(go.Scatter(x=[50, 50], y=[40, 0], mode='lines', line=dict(color=col_inv, width=5 if eq == "Inversor" else 2.5), showlegend=False))
+        fig_sld.add_shape(type="rect", x0=20, y0=-20, x1=80, y1=0, line_color=col_inv, fillcolor='rgba(168,85,247,0.1)', line_width=4 if eq == "Inversor" else 2)
+        fig_sld.add_annotation(x=50, y=-10, text=f"INVERSOR {inv_k:.0f} kVA", showarrow=False, font=dict(size=11, color=col_inv, weight="bold"))
+
+        # 7. Sub-ramales DC bajo el Inversor (PV y BESS)
+        fig_sld.add_trace(go.Scatter(x=[35, 35], y=[-20, -45], mode='lines', line=dict(color=col_pv, width=4 if eq == "Arreglo PV" else 2), showlegend=False))
+        fig_sld.add_trace(go.Scatter(x=[65, 65], y=[-20, -45], mode='lines', line=dict(color=col_bess, width=4 if eq == "BESS" else 2), showlegend=False))
+
+        # Bloque Arreglo PV
+        fig_sld.add_shape(type="rect", x0=20, y0=-65, x1=50, y1=-45, line_color=col_pv, fillcolor='rgba(255,176,32,0.1)', line_width=4 if eq == "Arreglo PV" else 2)
+        fig_sld.add_annotation(x=35, y=-55, text=f"PV {cfg['p_pv']:.0f} kWp", showarrow=False, font=dict(size=11, color=col_pv, weight="bold"))
+
+        # Bloque BESS
+        fig_sld.add_shape(type="rect", x0=55, y0=-65, x1=85, y1=-45, line_color=col_bess, fillcolor='rgba(0,208,132,0.1)', line_width=4 if eq == "BESS" else 2)
+        fig_sld.add_annotation(x=70, y=-55, text=f"BESS {cfg['c_bat']:.0f} kWh", showarrow=False, font=dict(size=11, color=col_bess, weight="bold"))
+
+        fig_sld.update_layout(
+            height=580, 
+            margin=dict(l=10, r=10, t=10, b=10),
+            paper_bgcolor='rgba(0,0,0,0)',
+            plot_bgcolor='rgba(0,0,0,0)'
+        )
         st.plotly_chart(fig_sld, use_container_width=True)
 
 def render_financiero_y_comparativa(cfg, df_ems, kpis):
