@@ -5,7 +5,21 @@ from core.ems_math import simular_evento_transitorio
 from utils.exports import generar_docx, generate_dxf_full, generar_codigo_matlab
 
 def render_dashboard(cfg, df_ems, kpis):
-    st.markdown("<div class='config-header'>Configuración Avanzada</div>", unsafe_allow_html=True)
+    # --- MÓDULO DE GEOLOCALIZACIÓN Y TELEMETRÍA CLIMÁTICA ---
+    st.markdown("<h3 style='color: #00B8FF; font-size:18px;'>📍 Geolocalización & Parámetros Climáticos Satelitales</h3>", unsafe_allow_html=True)
+    cg1, cg2 = st.columns(2)
+    with cg1:
+        cfg['lat'] = st.number_input("Latitud GPS", value=cfg.get('lat', -2.1833), format="%.4f")
+    with cg2:
+        cfg['lon'] = st.number_input("Longitud GPS", value=cfg.get('lon', -79.8833), format="%.4f")
+
+    if kpis.get('es_api_real'):
+        st.success("📡 Telemetría Conectada: Obteniendo irradiancia en tiempo real vía API Satelital.")
+    else:
+        st.warning("⚠️ Sin conexión satelital: Utilizando perfil climático de respaldo (Fallback).")
+
+    st.markdown("<br>", unsafe_allow_html=True)
+    st.markdown("<div class='config-header'>Configuración Avanzada del EMS</div>", unsafe_allow_html=True)
     c1, c2, c3 = st.columns(3)
     with c1:
         cfg['p_lim'] = st.slider("Set-point límite red (kW)", 80.0, 200.0, cfg['p_lim'], 5.0)
@@ -25,12 +39,13 @@ def render_dashboard(cfg, df_ems, kpis):
     m3.markdown(f"""<div class="kpi-card"><div class="kpi-title">INVERSOR REQUERIDO</div><div class="kpi-value">{kpis['inv_req']:.0f} <span class="kpi-unit">kVA</span></div><div class="kpi-sub"><span>Capacidad Aparente</span> <span class="c-green">● Volt/VAR Activo</span></div></div>""", unsafe_allow_html=True)
     m4.markdown(f"""<div class="kpi-card"><div class="kpi-title">CARGABILIDAD TRAFO</div><div class="kpi-value">{kpis['carg_con']:.1f} <span class="kpi-unit">%</span></div><div class="kpi-sub"><span>Trafo {cfg['s_trafo']:.0f} kVA</span> <span class="{'c-green' if kpis['carg_con'] < 85 else 'c-red'}">● {'NORMAL' if kpis['carg_con'] < 85 else 'ALERTA'}</span></div></div>""", unsafe_allow_html=True)
 
-    st.markdown("<h3 style='color:#F8FAFC; margin-top:20px; font-size:22px; font-weight:600;'>Monitoreo de Potencia (24h)</h3>", unsafe_allow_html=True)
+    st.markdown("<h3 style='color:#F8FAFC; margin-top:20px; font-size:22px; font-weight:600;'>Monitoreo de Potencia y Generación PV (24h)</h3>", unsafe_allow_html=True)
     fig = go.Figure()
-    fig.add_trace(go.Scatter(x=df_ems['Hora'], y=df_ems['P_Carga'], name='Demanda Bruta', line=dict(color='#00B8FF', width=2)))
-    fig.add_trace(go.Scatter(x=df_ems['Hora'], y=df_ems['P_Red'], name='Consumo Red', fill='tozeroy', line=dict(color='#00D084', width=2)))
+    fig.add_trace(go.Scatter(x=df_ems['Hora'], y=df_ems['P_Carga'], name='Demanda Bruta (kW)', line=dict(color='#00B8FF', width=2)))
+    fig.add_trace(go.Scatter(x=df_ems['Hora'], y=df_ems['P_Red'], name='Consumo Red (kW)', fill='tozeroy', line=dict(color='#00D084', width=2)))
+    fig.add_trace(go.Scatter(x=df_ems['Hora'], y=df_ems['P_PV'], name='Generación Solar (kW)', line=dict(color='#FFB020', width=2, dash='dot')))
     if cfg['ps_activo']: 
-        fig.add_trace(go.Scatter(x=df_ems['Hora'], y=[cfg['p_lim']]*24, name='Límite EMS', line=dict(color='#FF4D5A', width=2, dash='dash')))
+        fig.add_trace(go.Scatter(x=df_ems['Hora'], y=[cfg['p_lim']]*24, name='Límite EMS (kW)', line=dict(color='#FF4D5A', width=2, dash='dash')))
     
     fig.update_layout(height=400, margin=dict(l=10, r=10, t=20, b=10))
     st.plotly_chart(fig, use_container_width=True)
