@@ -1,4 +1,5 @@
 import streamlit as st
+import numpy as np
 import plotly.graph_objects as go
 from core.ems_math import simular_evento_transitorio
 from utils.exports import generar_docx, generate_dxf_full, generar_codigo_matlab
@@ -46,27 +47,27 @@ def render_ems(cfg, df_ems, kpis):
 
     st.markdown("<hr style='border-color: #26354D;'>", unsafe_allow_html=True)
     st.markdown("<h3 style='color: #00B8FF;'>Respaldo Matemático y Desglose Paso a Paso</h3>", unsafe_allow_html=True)
-    st.markdown("<p style='color: #94A3B8; font-size: 14px;'>Selecciona o expande cualquier fórmula para ver la sustitución de variables en tiempo real según la configuración actual.</p>", unsafe_allow_html=True)
+    st.markdown("<p style='color: #94A3B8; font-size: 14px;'>Sustitución de variables en tiempo real según la configuración actual.</p>", unsafe_allow_html=True)
     
     c1, c2 = st.columns(2)
     
-    # --- COLUMNA 1: PEAK SHAVING Y SOC ---
     with c1:
-        st.markdown("<p style='color: #00D084; font-weight: bold;'>1. Balance de Potencia y Recorte de Picos (Peak Shaving)</p>", unsafe_allow_html=True)
+        st.markdown("<p style='color: #00D084; font-weight: bold;'>1. Balance de Potencia y Peak Shaving</p>", unsafe_allow_html=True)
         st.latex(r"P_{red}(t) = P_{carga}(t) - P_{pv}(t) - P_{bat}(t)")
         
         with st.expander("🔍 Ver proceso de cálculo del Peak Shaving paso a paso", expanded=True):
             p_bruta_pico = kpis['demanda_max']
             p_limite = cfg['p_lim']
             req_pico = max(0.0, p_bruta_pico - p_limite)
+            p_red_calc = p_bruta_pico - req_pico
             
             st.markdown(f"""
-            * **Paso 1 (Obtener Demanda Pico):** La demanda bruta máxima registrada es de **{p_bruta_pico:.2f} kW**.
-            * **Paso 2 (Establecer Límite EMS):** El límite operativo configurado es **{p_limite:.2f} kW**.
-            * **Paso 3 (Calcular Requerimiento BESS):**
-              $$P_{{req}} = P_{{bruta}} - P_{{limite}} = {p_bruta_pico:.2f} - {p_limite:.2f} = {req_pico:.2f} \text{ kW}$$
+            * **Paso 1 (Demanda Pico):** {p_bruta_pico:.2f} kW.
+            * **Paso 2 (Límite EMS):** {p_limite:.2f} kW.
+            * **Paso 3 (Requerimiento BESS):**
+              $$P_{{req}} = {p_bruta_pico:.2f} - {p_limite:.2f} = {req_pico:.2f} \\text{{ kW}}$$
             * **Paso 4 (Potencia Final de Red):**
-              $$P_{{red}} = {p_bruta_pico:.2f} - {req_pico:.2f} = {p_bruta_pico - req_pico:.2f} \text{ kW}$$
+              $$P_{{red}} = {p_bruta_pico:.2f} - {req_pico:.2f} = {p_red_calc:.2f} \\text{{ kW}}$$
             """)
 
         st.markdown("<p style='color: #00D084; font-weight: bold; margin-top: 20px;'>2. Estado de Carga Mínimo (SOC)</p>", unsafe_allow_html=True)
@@ -77,44 +78,41 @@ def render_ems(cfg, df_ems, kpis):
             soc_min_kwh = kpis['soc_min']
             
             st.markdown(f"""
-            * **Paso 1 (Capacidad Nominal):** BESS total de **{c_bat_total:.2f} kWh**.
+            * **Paso 1 (Capacidad Nominal):** BESS total de {c_bat_total:.2f} kWh.
             * **Paso 2 (Límite Mínimo 20%):**
-              $$SOC_{{min}} = {c_bat_total:.2f} \times 0.20 = {soc_min_kwh:.2f} \text{ kWh}$$
-            * **Resultado:** La batería nunca se descargará por debajo de **{soc_min_kwh:.2f} kWh** para preservar su vida útil.
+              $$SOC_{{min}} = {c_bat_total:.2f} \\times 0.20 = {soc_min_kwh:.2f} \\text{{ kWh}}$$
             """)
 
-    # --- COLUMNA 2: CONTROL VOLT/VAR ---
     with c2:
-        st.markdown("<p style='color: #00D084; font-weight: bold;'>3. Capacidad Reactiva Máxima (Q_max - IEEE 2800)</p>", unsafe_allow_html=True)
+        st.markdown("<p style='color: #00D084; font-weight: bold;'>3. Capacidad Reactiva Máxima (IEEE 2800)</p>", unsafe_allow_html=True)
         st.latex(r"Q_{max} = \sqrt{S_{inv}^2 - P_{activa}^2}")
         
-        # Tomamos datos del pico de inyección de batería
-        p_activa_pico = kpis['demanda_recortada'] # Potencia en hora pico
+        p_activa_pico = kpis['demanda_recortada']
         s_inv_val = kpis['inv_req']
-        q_max_calc = np.sqrt(max(0, s_inv_val**2 - p_activa_pico**2))
+        q_max_calc = np.sqrt(max(0.0, s_inv_val**2 - p_activa_pico**2))
         
         with st.expander("🔍 Ver proceso de cálculo de Reserva Reactiva paso a paso", expanded=True):
             st.markdown(f"""
-            * **Paso 1 (Capacidad del Inversor):** $S_{{inv}} = {s_inv_val:.2f} \text{ kVA}$.
-            * **Paso 2 (Inyección Activa Actual):** $P_{{activa}} = {p_activa_pico:.2f} \text{ kW}$.
+            * **Paso 1 (Inversor Requerido):** $S_{{inv}} = {s_inv_val:.2f} \\text{{ kVA}}$.
+            * **Paso 2 (Potencia Activa Pico):** $P_{{activa}} = {p_activa_pico:.2f} \\text{{ kW}}$.
             * **Paso 3 (Sustitución):**
-              $$Q_{{max}} = \sqrt{{({s_inv_val:.2f})^2 - ({p_activa_pico:.2f})^2}}$$
-              $$Q_{{max}} = \sqrt{{{s_inv_val**2:.2f} - {p_activa_pico**2:.2f}}} = \mathbf{{{q_max_calc:.2f} \text{{ kVAR}}}}$$
+              $$Q_{{max}} = \\sqrt{{({s_inv_val:.2f})^2 - ({p_activa_pico:.2f})^2}} = {q_max_calc:.2f} \\text{{ kVAR}}$$
             """)
 
-        st.markdown("<p style='color: #00D084; font-weight: bold; margin-top: 20px;'>4. Control Dinámico de Tensión (Droop Volt/VAR)</p>", unsafe_allow_html=True)
+        st.markdown("<p style='color: #00D084; font-weight: bold; margin-top: 20px;'>4. Control Dinámico (Droop Volt/VAR)</p>", unsafe_allow_html=True)
         st.latex(r"Q_{inyectada} = \min\left[ (0.98 - V_{actual}) \times (S_{inv} \times 2), \; Q_{max} \right]")
         
         v_min_reg = df_ems['V_pu'].min()
         q_iny_max = df_ems['Q_inyectada'].max()
+        q_req_calc = (0.98 - v_min_reg) * (s_inv_val * 2)
         
         with st.expander("🔍 Ver proceso de cálculo de Compensación Volt/VAR"):
             st.markdown(f"""
-            * **Paso 1 (Tensión Mínima Detectada):** $V_{{actual}} = {v_min_reg:.3f} \text{ p.u.}$ (caída por debajo del umbral 0.98 p.u.).
-            * **Paso 2 (Requerimiento de Control):**
-              $$Q_{{req}} = (0.98 - {v_min_reg:.3f}) \times ({s_inv_val:.2f} \times 2) = {(0.98 - v_min_reg) * (s_inv_val * 2):.2f} \text{ kVAR}$$
-            * **Paso 3 (Aplicación de Límite $Q_{{max}}$):**
-              $$Q_{{inyectada}} = \min({(0.98 - v_min_reg) * (s_inv_val * 2):.2f}, {q_max_calc:.2f}) = \mathbf{{{q_iny_max:.1f} \text{{ kVAR}}}}$$
+            * **Paso 1 (Voltaje Mínimo):** $V_{{actual}} = {v_min_reg:.3f} \\text{{ p.u.}}$
+            * **Paso 2 (Requerimiento Control):**
+              $$Q_{{req}} = (0.98 - {v_min_reg:.3f}) \\times ({s_inv_val:.2f} \\times 2) = {q_req_calc:.2f} \\text{{ kVAR}}$$
+            * **Paso 3 (Inyección Final):**
+              $$Q_{{inyectada}} = \\min({q_req_calc:.2f}, {q_max_calc:.2f}) = {q_iny_max:.1f} \\text{{ kVAR}}$$
             """)
 
 
@@ -176,22 +174,18 @@ def render_unifilar(cfg, kpis):
         fig_sld = go.Figure()
         fig_sld.update_xaxes(visible=False, range=[-120, 120]); fig_sld.update_yaxes(visible=False, range=[-80, 220])
         
-        # Red CNEL
         fig_sld.add_trace(go.Scatter(x=[0, 0], y=[200, 150], mode='lines', line=dict(color=col_cnel, width=5 if eq == "Red CNEL" else 2), showlegend=False))
         fig_sld.add_annotation(x=30, y=190, text="RED CNEL 13.8 kV", showarrow=False, font=dict(size=12, color=col_cnel))
         
-        # Trafo
         fig_sld.add_shape(type="circle", x0=-12, y0=115, x1=12, y1=145, line_color=col_trafo, line_width=5 if eq == "Transformador" else 2)
         fig_sld.add_shape(type="circle", x0=-12, y0=95, x1=12, y1=125, line_color=col_trafo, line_width=5 if eq == "Transformador" else 2)
         fig_sld.add_annotation(x=45, y=120, text=f"TRAFO {cfg['s_trafo']} kVA", showarrow=False, font=dict(size=12, color=col_trafo))
         
-        # TGBT
         fig_sld.add_trace(go.Scatter(x=[0, 0], y=[95, 60], mode='lines', line=dict(color=col_tgbt, width=5 if eq == "TGBT" else 2), showlegend=False))
         fig_sld.add_trace(go.Scatter(x=[0, 0], y=[60, 40], mode='lines', line=dict(color=col_tgbt, width=5 if eq == "TGBT" else 2), showlegend=False))
         fig_sld.add_trace(go.Scatter(x=[-90, 90], y=[40, 40], mode='lines', line=dict(color=col_tgbt, width=7 if eq == "TGBT" else 4), showlegend=False))
         fig_sld.add_annotation(x=0, y=47, text=f"BUS TGBT {cfg['v_nom']}V", showarrow=False, font=dict(size=13, color=col_tgbt, weight="bold"))
         
-        # Ramas
         fig_sld.add_trace(go.Scatter(x=[-50, -50], y=[40, 0], mode='lines', line=dict(color=col_carga, width=5 if eq == "Cargas Bloque D" else 2), showlegend=False))
         fig_sld.add_shape(type="rect", x0=-75, y0=-15, x1=-25, y1=0, line_color=col_carga, line_width=5 if eq == "Cargas Bloque D" else 2)
         fig_sld.add_annotation(x=-50, y=-7.5, text="CARGAS", showarrow=False, font=dict(size=11, color=col_carga))
@@ -200,7 +194,6 @@ def render_unifilar(cfg, kpis):
         fig_sld.add_shape(type="rect", x0=20, y0=-15, x1=80, y1=0, line_color=col_inv, line_width=5 if eq == "Inversor" else 2)
         fig_sld.add_annotation(x=50, y=-7.5, text="INVERSOR", showarrow=False, font=dict(size=11, color=col_inv))
         
-        # DC Lines
         fig_sld.add_trace(go.Scatter(x=[35, 35], y=[-15, -40], mode='lines', line=dict(color=col_pv, width=5 if eq == "Arreglo PV" else 2), showlegend=False))
         fig_sld.add_trace(go.Scatter(x=[65, 65], y=[-15, -40], mode='lines', line=dict(color=col_bess, width=5 if eq == "BESS" else 2), showlegend=False))
         fig_sld.add_shape(type="rect", x0=20, y0=-60, x1=50, y1=-40, line_color=col_pv, line_width=5 if eq == "Arreglo PV" else 2)
@@ -211,10 +204,12 @@ def render_unifilar(cfg, kpis):
         fig_sld.update_layout(height=600, margin=dict(l=0, r=0, t=10, b=10))
         st.plotly_chart(fig_sld, use_container_width=True)
 
+
 def render_memoria(cfg, kpis):
     st.markdown("<h3 style='color: #00B8FF;'>Generación de Memoria Técnica</h3>", unsafe_allow_html=True)
     st.markdown("<p style='color: #94A3B8;'>El documento Word (.docx) se genera respetando tu formato de ingeniería exacto.</p>", unsafe_allow_html=True)
     st.download_button("📄 DESCARGAR MEMORIA TÉCNICA (.DOCX)", generar_docx(cfg, kpis['inv_req']), f"Memoria_Tecnica_{cfg['nombre_proyecto'].replace(' ','_')}.docx", 'application/vnd.openxmlformats-officedocument.wordprocessingml.document')
+
 
 def render_exportaciones(cfg, df_ems, kpis):
     st.markdown("<h3 style='color: #00B8FF;'>Exportación de Datos y Código MATLAB</h3>", unsafe_allow_html=True)
