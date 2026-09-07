@@ -1,5 +1,6 @@
 import numpy as np
 import pandas as pd
+from core.climate import obtener_irradiancia_real
 
 def calcular_soporte_reactivo(v_actual_pu, p_activa, s_inv_kva):
     """Control de voltaje (Volt/VAR) con curva de droop."""
@@ -44,12 +45,18 @@ def simular_evento_transitorio(tipo_evento):
     return pd.DataFrame({"Tiempo (s)": tiempo, "Voltaje (p.u.)": voltaje, "Frecuencia (Hz)": frecuencia})
 
 def calcular_balance_24h(cfg):
-    """Simula el balance energético de 24 horas y retorna los KPIs."""
+    """Simula el balance energético considerando datos climáticos en tiempo real."""
     REAL_LOAD = [36, 36, 36, 36, 36, 40, 60, 90, 120, 145, 160, 175, 179.1, 140, 150, 155, 160, 165, 172, 175, 130, 90, 50, 36]
-    PV_BASE = [0, 0, 0, 0, 0, 0, 5, 25, 55, 90, 120, 140, 150, 140, 120, 90, 55, 25, 5, 0, 0, 0, 0, 0]
     
-    factor_pv = cfg['p_pv'] / 150.0 if cfg['p_pv'] > 0 else 0.0
-    pv_real = [round(v * factor_pv, 1) for v in PV_BASE]
+    # Coordenadas geográficas
+    lat = cfg.get('lat', -2.1833)
+    lon = cfg.get('lon', -79.8833)
+    
+    # Consulta de irradiancia satelital en W/m² (Open-Meteo / NASA POWER)
+    irradiancia_24h, es_api_real = obtener_irradiancia_real(lat, lon)
+    
+    # P_PV = P_nominal * (G_actual / 1000 W/m²) * n_inversor
+    pv_real = [round(cfg['p_pv'] * (g / 1000.0) * 0.95, 1) for g in irradiancia_24h] if cfg['p_pv'] > 0 else [0.0]*24
     
     soc_min = 0.20 * cfg['c_bat']; soc_max = cfg['c_bat']; energia = cfg['c_bat'] * 0.50
     limite_operativo = cfg['p_lim'] if cfg['ps_activo'] else 9999.0
@@ -75,7 +82,8 @@ def calcular_balance_24h(cfg):
         
         rows_ems.append({
             'Hora': f"{i:02d}:00", 'P_Carga': REAL_LOAD[i], 'P_PV': pv_real[i], 
-            'P_Bat': round(p_bat, 1), 'P_Red': round(p_red, 1), 'SOC': round(soc, 1), 
+            'Irradiancia_Wm2': irradiancia_24h[i], 'P_Bat': round(p_bat, 1), 
+            'P_Red': round(p_red, 1), 'SOC': round(soc, 1), 
             'V_pu': round(v_final, 3), 'Q_inyectada': round(q_inyectada, 1)
         })
 
@@ -87,6 +95,8 @@ def calcular_balance_24h(cfg):
         'inv_req': inv_req,
         'soc_min': soc_min,
         'pv_real': pv_real,
+        'irradiancia_24h': irradiancia_24h,
+        'es_api_real': es_api_real,
         'REAL_LOAD': REAL_LOAD
     }
     
